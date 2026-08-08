@@ -10,7 +10,7 @@ archivo = st.file_uploader("Arrastra o selecciona tu Excel", type=['xlsx'])
 if archivo:
     xls = pd.ExcelFile(archivo)
     hoja = 'REPORTE DE CALIDAD' if 'REPORTE DE CALIDAD' in xls.sheet_names else xls.sheet_names[0]
-    df = pd.read_excel(archivo, sheet_name=hoja)
+    df = pd.read_excel(archivo,sheet_name=hoja,usecols="A:AX")
 
     df.columns = [str(c).strip().upper() for c in df.columns]
 
