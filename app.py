@@ -1,42 +1,55 @@
 import streamlit as st
-import pandas as pd
 
-st.set_page_config(layout="wide")
-
-st.title("Explorador de Excel")
-
-archivo = st.file_uploader(
-    "Sube el Excel",
-    type=["xlsx"]
+st.set_page_config(
+    page_title="Dashboard Calidad Cesantoni",
+    page_icon="📊",
+    layout="wide"
 )
 
-if archivo is not None:
+st.title("📊 Dashboard Ejecutivo de Calidad")
 
-    try:
+tab1, tab2, tab3, tab4 = st.tabs(
+    [
+        "📊 Resumen",
+        "🔥 Hornos",
+        "🚨 Defectivos",
+        "📞 Reclamaciones y Tonos"
+    ]
+)
 
-        excel = pd.ExcelFile(archivo)
+with tab1:
+    st.header("Resumen Ejecutivo")
 
-        hoja = st.selectbox(
-            "Hoja",
-            excel.sheet_names
-        )
+    c1, c2, c3, c4 = st.columns(4)
 
-        df = pd.read_excel(
-            archivo,
-            sheet_name=hoja,
-            header=None
-        )
+    c1.metric("Calidad General", "--")
+    c2.metric("Meta", "94.5%")
+    c3.metric("M² Totales", "--")
+    c4.metric("Reclamaciones", "--")
 
-        st.write(f"Filas: {df.shape[0]}")
-        st.write(f"Columnas: {df.shape[1]}")
+with tab2:
 
-        st.subheader("Primeras 50 filas")
+    st.header("Hornos")
 
-        st.dataframe(
-            df.head(50),
-            use_container_width=True
-        )
+    c1, c2, c3, c4 = st.columns(4)
 
-    except Exception as e:
+    c1.metric("Horno 1", "--")
+    c2.metric("Horno 4", "--")
+    c3.metric("Horno 5", "--")
+    c4.metric("Horno 6", "--")
 
-        st.error(str(e))
+with tab3:
+
+    st.header("Defectivos")
+
+    st.info(
+        "Aquí aparecerá el Pareto de defectos"
+    )
+
+with tab4:
+
+    st.header("Reclamaciones y Tonos")
+
+    st.info(
+        "Aquí aparecerán reclamaciones y visor de tonos"
+    )
