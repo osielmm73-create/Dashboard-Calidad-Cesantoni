@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 
 st.set_page_config(
     page_title="Dashboard Calidad Cesantoni",
@@ -8,48 +9,81 @@ st.set_page_config(
 
 st.title("📊 Dashboard Ejecutivo de Calidad")
 
-tab1, tab2, tab3, tab4 = st.tabs(
-    [
-        "📊 Resumen",
-        "🔥 Hornos",
-        "🚨 Defectivos",
-        "📞 Reclamaciones y Tonos"
-    ]
+archivo = st.file_uploader(
+    "Sube tu archivo Excel",
+    type=["xlsx"]
 )
 
-with tab1:
-    st.header("Resumen Ejecutivo")
+if archivo:
 
-    c1, c2, c3, c4 = st.columns(4)
+    try:
 
-    c1.metric("Calidad General", "--")
-    c2.metric("Meta", "94.5%")
-    c3.metric("M² Totales", "--")
-    c4.metric("Reclamaciones", "--")
+        df = pd.read_excel(
+            archivo,
+            sheet_name="REPORTE DE CALIDAD",
+            header=8
+        )
 
-with tab2:
+        df.columns = [
+            str(c).strip().upper()
+            for c in df.columns
+        ]
 
-    st.header("Hornos")
+        df = df[
+            df["CALIDAD"].isin(
+                [
+                    "PRIMERA",
+                    "SEGUNDA",
+                    "TERCERA",
+                    "QUINTA"
+                ]
+            )
+        ]
 
-    c1, c2, c3, c4 = st.columns(4)
+        df["M2"] = pd.to_numeric(
+            df["M2"],
+            errors="coerce"
+        )
 
-    c1.metric("Horno 1", "--")
-    c2.metric("Horno 4", "--")
-    c3.metric("Horno 5", "--")
-    c4.metric("Horno 6", "--")
+        total = df["M2"].sum()
 
-with tab3:
+        primera = df.loc[
+            df["CALIDAD"] == "PRIMERA",
+            "M2"
+        ].sum()
 
-    st.header("Defectivos")
+        segunda = df.loc[
+            df["CALIDAD"] == "SEGUNDA",
+            "M2"
+        ].sum()
 
-    st.info(
-        "Aquí aparecerá el Pareto de defectos"
-    )
+        quinta = df.loc[
+            df["CALIDAD"] == "QUINTA",
+            "M2"
+        ].sum()
 
-with tab4:
+        calidad = (
+            primera / total * 100
+            if total > 0 else 0
+        )
 
-    st.header("Reclamaciones y Tonos")
+        tab1, tab2, tab3, tab4 = st.tabs(
+            [
+                "📊 Resumen",
+                "🔥 Hornos",
+                "🚨 Defectivos",
+                "📞 Reclamaciones y Tonos"
+            ]
+        )
 
-    st.info(
-        "Aquí aparecerán reclamaciones y visor de tonos"
-    )
+        with tab1:
+
+            c1, c2, c3, c4, c5 = st.columns(5)
+
+            c1.metric(
+                "Calidad General",
+                f"{calidad:.2f}%"
+            )
+
+            c2.metric(
+             
