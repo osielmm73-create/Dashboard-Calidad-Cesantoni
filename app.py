@@ -212,7 +212,7 @@ if archivo:
                 .reset_index()
             )
 
-            fig = px.bar(
+            (
                 produccion,
                 x="HORNO",
       
