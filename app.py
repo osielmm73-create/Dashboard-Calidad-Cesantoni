@@ -31,12 +31,7 @@ if archivo:
 
         df = df[
             df["CALIDAD"].isin(
-                [
-                    "PRIMERA",
-                    "SEGUNDA",
-                    "TERCERA",
-                    "QUINTA"
-                ]
+                ["PRIMERA", "SEGUNDA", "TERCERA", "QUINTA"]
             )
         ]
 
@@ -76,36 +71,70 @@ if archivo:
             ]
         )
 
-with tab1:
+        with tab1:
 
-    c1, c2, c3, c4, c5 = st.columns(5)
+            c1, c2, c3, c4, c5 = st.columns(5)
 
-    c1.metric(
-        "Calidad General",
-        f"{calidad:.2f}%"
-    )
+            c1.metric(
+                "Calidad General",
+                f"{calidad:.2f}%"
+            )
 
-    c2.metric(
-        "Meta",
-        "94.5%"
-    )
+            c2.metric(
+                "Meta",
+                "94.5%"
+            )
 
-    c3.metric(
-        "M² Totales",
-        f"{total:,.0f}"
-    )
+            c3.metric(
+                "M² Totales",
+                f"{total:,.0f}"
+            )
 
-    c4.metric(
-        "M² Segunda",
-        f"{segunda:,.0f}"
-    )
+            c4.metric(
+                "M² Segunda",
+                f"{segunda:,.0f}"
+            )
 
-    c5.metric(
-        "M² Quinta",
-        f"{quinta:,.0f}"
-    )
+            c5.metric(
+                "M² Quinta",
+                f"{quinta:,.0f}"
+            )
 
-    st.dataframe(
-        df.head(20),
-        use_container_width=True
-    )
+            st.dataframe(
+                df.head(20),
+                use_container_width=True
+            )
+
+        with tab2:
+
+            st.header("Producción por Horno")
+
+            horno = (
+                df.groupby("HORNO")["M2"]
+                .sum()
+                .reset_index()
+            )
+
+            st.bar_chart(
+                horno,
+                x="HORNO",
+                y="M2"
+            )
+
+        with tab3:
+
+            st.info(
+                "Próximo paso: Pareto de defectos"
+            )
+
+        with tab4:
+
+            st.info(
+                "Próximo paso: Reclamaciones y tonos"
+            )
+
+    except Exception as e:
+
+        st.error(
+            f"Error al procesar archivo: {e}"
+        )
