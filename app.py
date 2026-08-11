@@ -76,14 +76,36 @@ if archivo:
             ]
         )
 
-        with tab1:
+with tab1:
 
-            c1, c2, c3, c4, c5 = st.columns(5)
+    c1, c2, c3, c4, c5 = st.columns(5)
 
-            c1.metric(
-                "Calidad General",
-                f"{calidad:.2f}%"
-            )
+    c1.metric(
+        "Calidad General",
+        f"{calidad:.2f}%"
+    )
 
-            c2.metric(
-             
+    c2.metric(
+        "Meta",
+        "94.5%"
+    )
+
+    c3.metric(
+        "M² Totales",
+        f"{total:,.0f}"
+    )
+
+    c4.metric(
+        "M² Segunda",
+        f"{segunda:,.0f}"
+    )
+
+    c5.metric(
+        "M² Quinta",
+        f"{quinta:,.0f}"
+    )
+
+    st.dataframe(
+        df.head(20),
+        use_container_width=True
+    )
