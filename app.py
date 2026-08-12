@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 st.set_page_config(
-    page_title="Dashboard Calidad",
+    page_title="Dashboard Calidad Cesantoni",
     page_icon="📊",
     layout="wide"
 )
@@ -16,16 +16,29 @@ archivo = st.file_uploader(
 
 if archivo:
 
+    excel = pd.ExcelFile(archivo)
+
+    st.success("Archivo cargado correctamente")
+
+    st.write("Hojas encontradas:")
+    st.write(excel.sheet_names)
+
     try:
 
-        excel = pd.ExcelFile(archivo)
+        df = pd.read_excel(
+            archivo,
+            sheet_name="REPORTE DE CALIDAD",
+            header=8
+        )
 
-        st.success("Archivo cargado correctamente")
+        st.subheader("Diagnóstico")
 
-        st.write("Hojas encontradas:")
+        st.write("Columnas detectadas:")
 
-        st.write(excel.sheet_names)
+        st.write(df.columns.tolist())
+
+        st.write(df.head(10))
 
     except Exception as e:
 
-        st.error(str(e))
+        st.error(f"Error leyendo REPORTE DE CALIDAD: {e}")
