@@ -7,7 +7,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("📊 Dashboard Ejecutivo de Calidad")
+st.title("📊 Dashboard Calidad")
 
 archivo = st.file_uploader(
     "Sube tu archivo Excel",
@@ -24,21 +24,50 @@ if archivo:
             header=8
         )
 
+        # Limpiar nombres de columnas
         df.columns = [
             str(c).strip().upper()
             for c in df.columns
         ]
 
-        st.success("Archivo cargado correctamente")
+        # Eliminar columnas UNNAMED
+        df = df.loc[
+            :,
+            ~df.columns.str.contains("UNNAMED")
+        ]
 
-        st.write("Columnas detectadas:")
+        st.write("Columnas encontradas:")
 
         st.write(df.columns.tolist())
 
-        st.write("Primeras filas:")
+        columnas = [
+            "PLANTA",
+            "MES",
+            "HORNO",
+            "DIA",
+            "MODELO",
+            "FORMATO",
+            "CALIDAD",
+            "M2"
+        ]
 
-        st.dataframe(df.head(10))
+        df = df[
+            [c for c in columnas if c in df.columns]
+        ].copy()
+
+        st.success(
+            "Datos limpiados correctamente"
+        )
+
+        st.subheader("Vista previa")
+
+        st.dataframe(
+            df.head(20),
+            use_container_width=True
+        )
 
     except Exception as e:
 
-        st.error(f"Error: {e}")
+        st.error(
+            f"Error: {e}"
+        )
