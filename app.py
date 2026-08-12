@@ -7,7 +7,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("📊 Dashboard Calidad")
+st.title("📊 Dashboard Ejecutivo de Calidad")
 
 archivo = st.file_uploader(
     "Sube tu archivo Excel",
@@ -16,58 +16,82 @@ archivo = st.file_uploader(
 
 if archivo:
 
-    try:
+    df = pd.read_excel(
+        archivo,
+        sheet_name="REPORTE DE CALIDAD",
+        header=8
+    )
 
-        df = pd.read_excel(
-            archivo,
-            sheet_name="REPORTE DE CALIDAD",
-            header=8
+    df.columns = [
+        str(c).strip().upper()
+        for c in df.columns
+    ]
+
+    df = df.loc[
+        :,
+        ~df.columns.str.contains("UNNAMED")
+    ]
+
+    df = df[
+        df["CALIDAD"].isin(
+            [
+                "PRIMERA",
+                "SEGUNDA",
+                "TERCERA",
+                "QUINTA"
+            ]
         )
+    ]
 
-        # Limpiar nombres de columnas
-        df.columns = [
-            str(c).strip().upper()
-            for c in df.columns
-        ]
+    df["M2"] = pd.to_numeric(
+        df["M2"],
+        errors="coerce"
+    )
 
-        # Eliminar columnas UNNAMED
-        df = df.loc[
-            :,
-            ~df.columns.str.contains("UNNAMED")
-        ]
+    total = df["M2"].sum()
 
-        st.write("Columnas encontradas:")
+    primera = df.loc[
+        df["CALIDAD"] == "PRIMERA",
+        "M2"
+    ].sum()
 
-        st.write(df.columns.tolist())
+    segunda = df.loc[
+        df["CALIDAD"] == "SEGUNDA",
+        "M2"
+    ].sum()
 
-        columnas = [
-            "PLANTA",
-            "MES",
-            "HORNO",
-            "DIA",
-            "MODELO",
-            "FORMATO",
-            "CALIDAD",
-            "M2"
-        ]
+    quinta = df.loc[
+        df["CALIDAD"] == "QUINTA",
+        "M2"
+    ].sum()
 
-        df = df[
-            [c for c in columnas if c in df.columns]
-        ].copy()
+    calidad = (
+        primera / total * 100
+    )
 
-        st.success(
-            "Datos limpiados correctamente"
-        )
+    c1, c2, c3, c4 = st.columns(4)
 
-        st.subheader("Vista previa")
+    c1.metric(
+        "Calidad General",
+        f"{calidad:.2f}%"
+    )
 
-        st.dataframe(
-            df.head(20),
-            use_container_width=True
-        )
+    c2.metric(
+        "M² Totales",
+        f"{total:,.0f}"
+    )
 
-    except Exception as e:
+    c3.metric(
+        "M² Segunda",
+        f"{segunda:,.0f}"
+    )
 
-        st.error(
-            f"Error: {e}"
-        )
+    c4.metric(
+        "M² Quinta",
+        f"{quinta:,.0f}"
+    )
+
+    st.dataframe(
+        df.head(20),
+        use_container_width=True
+    )
