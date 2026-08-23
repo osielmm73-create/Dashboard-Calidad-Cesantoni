@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-import plotly.graph_objects as go
 import io
 
 st.set_page_config(
@@ -76,16 +75,15 @@ if 'logged_in' not in st.session_state:
 if 'excel_bytes' not in st.session_state:
     st.session_state['excel_bytes'] = None
 
-# Función auxiliar para encontrar filas de encabezado por nombre exacto
-def read_table_by_header(df_raw, header_names):
+# Buscador flexible de columnas individuales en todo el DataFrame crudo
+def extract_column_by_keyword(df_raw, keywords):
     for r in range(len(df_raw)):
-        row_vals = [str(val).strip().upper() for val in df_raw.iloc[r].values]
-        if all(h in row_vals for h in header_names):
-            col_indices = [row_vals.index(h) for h in header_names]
-            df_sub = df_raw.iloc[r+1:, col_indices].copy()
-            df_sub.columns = header_names
-            return df_sub.dropna(subset=[header_names[0]])
-    return pd.DataFrame(columns=header_names)
+        for c in range(len(df_raw.columns)):
+            val = str(df_raw.iloc[r, c]).strip().upper()
+            if any(kw.upper() == val or kw.upper() in val for kw in keywords):
+                col_data = df_raw.iloc[r+1:, c].values
+                return pd.Series(col_data)
+    return pd.Series(dtype=object)
 
 def parse_excel_data(file_bytes):
     xl = pd.ExcelFile(io.BytesIO(file_bytes))
@@ -94,55 +92,96 @@ def parse_excel_data(file_bytes):
     
     df_raw = pd.read_excel(io.BytesIO(file_bytes), sheet_name=selected_sheet, header=None)
     
-    # 1. Calidad y Metros
-    df_calidad = read_table_by_header(df_raw, ['FECHA', 'PRIMERA', 'SEGUNDA', 'TERCERA', 'QUINTA', 'MTS2', 'CALIDAD META'])
-    if not df_calidad.empty:
-        df_calidad['FECHA'] = pd.to_datetime(df_calidad['FECHA'], errors='coerce')
+    # 1. Tabla Principal de Calidad y Metros
+    fechas = extract_column_by_keyword(df_raw, ['FECHA'])
+    primera = extract_column_by_keyword(df_raw, ['PRIMERA'])
+    segunda = extract_column_by_keyword(df_raw, ['SEGUNDA'])
+    tercera = extract_column_by_keyword(df_raw, ['TERCERA'])
+    quinta = extract_column_by_keyword(df_raw, ['QUINTA'])
+    mts2 = extract_column_by_keyword(df_raw, ['MTS2', 'M2'])
+    calidad_meta = extract_column_by_keyword(df_raw, ['CALIDAD META'])
+    
+    df_calidad = pd.DataFrame()
+    if not fechas.empty:
+        max_len = len(fechas)
+        df_calidad['FECHA'] = pd.to_datetime(fechas.iloc[:max_len], errors='coerce')
+        df_calidad['PRIMERA'] = pd.to_numeric(primera.iloc[:max_len], errors='coerce').fillna(0) if not primera.empty else 0
+        df_calidad['SEGUNDA'] = pd.to_numeric(segunda.iloc[:max_len], errors='coerce').fillna(0) if not segunda.empty else 0
+        df_calidad['TERCERA'] = pd.to_numeric(tercera.iloc[:max_len], errors='coerce').fillna(0) if not tercera.empty else 0
+        df_calidad['QUINTA'] = pd.to_numeric(quinta.iloc[:max_len], errors='coerce').fillna(0) if not quinta.empty else 0
+        df_calidad['MTS2'] = pd.to_numeric(mts2.iloc[:max_len], errors='coerce').fillna(0) if not mts2.empty else 0
+        df_calidad['CALIDAD META'] = pd.to_numeric(calidad_meta.iloc[:max_len], errors='coerce').fillna(94.5) if not calidad_meta.empty else 94.5
+        
         df_calidad = df_calidad.dropna(subset=['FECHA'])
-        for col in ['PRIMERA', 'SEGUNDA', 'TERCERA', 'QUINTA', 'MTS2', 'CALIDAD META']:
-            df_calidad[col] = pd.to_numeric(df_calidad[col], errors='coerce').fillna(0)
         if df_calidad['PRIMERA'].max() <= 1.0 and df_calidad['PRIMERA'].max() > 0:
             df_calidad['PRIMERA'] *= 100
         df_calidad['MES'] = df_calidad['FECHA'].dt.strftime('%B %Y').str.capitalize()
 
     # 2. Pallets
-    df_pallets = read_table_by_header(df_raw, ['FECHA', 'PALLET DE 1RA', 'PALLET DE 2DA', 'PALLET DE 3RA', 'PALLET RECHAZADO', 'PRINCIPAL RECHAZO'])
-    if not df_pallets.empty:
-        df_pallets['FECHA'] = pd.to_datetime(df_pallets['FECHA'], errors='coerce')
+    p_fechas = extract_column_by_keyword(df_raw, ['FECHA'])
+    p_1ra = extract_column_by_keyword(df_raw, ['PALLET DE 1RA'])
+    p_2da = extract_column_by_keyword(df_raw, ['PALLET DE 2DA'])
+    p_3ra = extract_column_by_keyword(df_raw, ['PALLET DE 3RA'])
+    p_rech = extract_column_by_keyword(df_raw, ['PALLET RECHAZADO'])
+    
+    df_pallets = pd.DataFrame()
+    if not p_fechas.empty:
+        max_len = len(p_fechas)
+        df_pallets['FECHA'] = pd.to_datetime(p_fechas.iloc[:max_len], errors='coerce')
+        df_pallets['PALLET DE 1RA'] = pd.to_numeric(p_1ra.iloc[:max_len], errors='coerce').fillna(0) if not p_1ra.empty else 0
+        df_pallets['PALLET DE 2DA'] = pd.to_numeric(p_2da.iloc[:max_len], errors='coerce').fillna(0) if not p_2da.empty else 0
+        df_pallets['PALLET DE 3RA'] = pd.to_numeric(p_3ra.iloc[:max_len], errors='coerce').fillna(0) if not p_3ra.empty else 0
+        df_pallets['PALLET RECHAZADO'] = pd.to_numeric(p_rech.iloc[:max_len], errors='coerce').fillna(0) if not p_rech.empty else 0
+        
         df_pallets = df_pallets.dropna(subset=['FECHA'])
-        for col in ['PALLET DE 1RA', 'PALLET DE 2DA', 'PALLET DE 3RA', 'PALLET RECHAZADO']:
-            df_pallets[col] = pd.to_numeric(df_pallets[col], errors='coerce').fillna(0)
         df_pallets['MES'] = df_pallets['FECHA'].dt.strftime('%B %Y').str.capitalize()
 
     # 3. Garantías
-    df_garantias = read_table_by_header(df_raw, ['MES', 'CANTIDAD'])
-    if not df_garantias.empty:
-        df_garantias['CANTIDAD'] = pd.to_numeric(df_garantias['CANTIDAD'], errors='coerce').fillna(0)
+    g_cant = extract_column_by_keyword(df_raw, ['CANTIDAD'])
+    df_garantias = pd.DataFrame()
+    if not g_cant.empty:
+        df_garantias['CANTIDAD'] = pd.to_numeric(g_cant, errors='coerce').fillna(0)
 
-    # 4. Modelos en Prueba y Autorizados
-    df_pruebas = read_table_by_header(df_raw, ['MODELO', 'HORNO'])
+    # 4. Defectos
+    d_fecha = extract_column_by_keyword(df_raw, ['FECHA'])
+    d_def = extract_column_by_keyword(df_raw, ['DEFECTO'])
+    d_mts2 = extract_column_by_keyword(df_raw, ['MTS2', 'M2'])
+    d_resp = extract_column_by_keyword(df_raw, ['RESPONSABLE'])
+    d_pct = extract_column_by_keyword(df_raw, ['PORCENTAJE DE DEFECTO DEL ÁREA', 'PORCENTAJE'])
     
-    # 5. Defectos
-    df_def = read_table_by_header(df_raw, ['FECHA', 'MODELO', 'FORMATO', 'HORNO', 'DEFECTO', 'MTS2', 'RESPONSABLE', 'PORCENTAJE DE DEFECTO DEL ÁREA'])
-    if not df_def.empty:
-        df_def['FECHA'] = pd.to_datetime(df_def['FECHA'], errors='coerce').dt.floor('D')
-        df_def = df_def.dropna(subset=['FECHA', 'DEFECTO'])
-        df_def['MTS2'] = pd.to_numeric(df_def['MTS2'], errors='coerce').fillna(0)
-        df_def['PORCENTAJE DE DEFECTO DEL ÁREA'] = pd.to_numeric(df_def['PORCENTAJE DE DEFECTO DEL ÁREA'], errors='coerce').fillna(0)
+    df_def = pd.DataFrame()
+    if not d_def.empty:
+        max_len = len(d_def)
+        df_def['FECHA'] = pd.to_datetime(d_fecha.iloc[:max_len], errors='coerce').dt.floor('D') if not d_fecha.empty else pd.NaT
+        df_def['DEFECTO'] = d_def.iloc[:max_len].astype(str).str.strip()
+        df_def['MTS2'] = pd.to_numeric(d_mts2.iloc[:max_len], errors='coerce').fillna(0) if not d_mts2.empty else 0
+        df_def['RESPONSABLE'] = d_resp.iloc[:max_len].astype(str).str.strip().fillna("SIN ASIGNAR") if not d_resp.empty else "SIN ASIGNAR"
+        df_def['PORCENTAJE'] = pd.to_numeric(d_pct.iloc[:max_len], errors='coerce').fillna(0) if not d_pct.empty else 0
+        
+        df_def = df_def.dropna(subset=['DEFECTO'])
+        df_def = df_def[df_def['DEFECTO'] != 'nan']
         df_def['MES'] = df_def['FECHA'].dt.strftime('%B %Y').str.capitalize()
 
-    # 6. Cumplimiento a Tono (Celdas AA:AF -> Columnas 26 a 31, Filas 2 a 13)
-    cumplimiento_tono = 0.0
-    try:
-        df_tono = df_raw.iloc[1:13, 26:32].select_dtypes(include=[np.number])
-        if not df_tono.empty:
-            cumplimiento_tono = float(df_tono.mean().mean())
-            if cumplimiento_tono <= 1.0 and cumplimiento_tono > 0:
-                cumplimiento_tono *= 100
-    except Exception:
-        cumplimiento_tono = 0.0
+    # 5. Cumplimiento a Tono (Nuevos encabezados)
+    t_fecha = extract_column_by_keyword(df_raw, ['FECHA'])
+    t_p1 = extract_column_by_keyword(df_raw, ['%CUMPLIMIENTO A TONO P1'])
+    t_p3 = extract_column_by_keyword(df_raw, ['%CUMPLIMIENTO A TONO P3'])
+    t_acum = extract_column_by_keyword(df_raw, ['%CUMPLIMIENTO A TONO ACUMULADO'])
+    
+    df_tono = pd.DataFrame()
+    if not t_p1.empty or not t_acum.empty:
+        max_len = max(len(t_p1), len(t_acum), 1)
+        df_tono['FECHA'] = pd.to_datetime(t_fecha.iloc[:max_len], errors='coerce').dt.floor('D') if not t_fecha.empty else pd.NaT
+        df_tono['P1'] = pd.to_numeric(t_p1.iloc[:max_len], errors='coerce').fillna(0) if not t_p1.empty else 0
+        df_tono['P3'] = pd.to_numeric(t_p3.iloc[:max_len], errors='coerce').fillna(0) if not t_p3.empty else 0
+        df_tono['ACUMULADO'] = pd.to_numeric(t_acum.iloc[:max_len], errors='coerce').fillna(0) if not t_acum.empty else 0
+        if df_tono['P1'].max() <= 1.0 and df_tono['P1'].max() > 0:
+            df_tono['P1'] *= 100
+        if df_tono['ACUMULADO'].max() <= 1.0 and df_tono['ACUMULADO'].max() > 0:
+            df_tono['ACUMULADO'] *= 100
+        df_tono['MES'] = df_tono['FECHA'].dt.strftime('%B %Y').str.capitalize()
 
-    return df_calidad, df_pallets, df_garantias, df_pruebas, df_def, cumplimiento_tono
+    return df_calidad, df_pallets, df_garantias, df_def, df_tono
 
 # Sidebar
 with st.sidebar:
@@ -169,7 +208,7 @@ if st.session_state['excel_bytes'] is None:
     st.stop()
 
 try:
-    df_calidad, df_pallets, df_garantias, df_pruebas, df_def, cumplimiento_tono = parse_excel_data(st.session_state['excel_bytes'])
+    df_calidad, df_pallets, df_garantias, df_def, df_tono = parse_excel_data(st.session_state['excel_bytes'])
 except Exception as e:
     st.error(f"Error procesando el Excel: {e}")
     st.stop()
@@ -179,16 +218,18 @@ meses_opciones = ["Todos los Meses"] + list(df_calidad['MES'].unique()) if not d
 mes_seleccionado = st.sidebar.selectbox("🗓️ Seleccionar Mes:", options=meses_opciones)
 meta_calidad = st.sidebar.number_input("🎯 Meta Calidad (%):", value=94.50, step=0.5)
 
-# Filtrado por mes
+# Filtrado
 df_calidad_f = df_calidad[df_calidad['MES'] == mes_seleccionado].copy() if mes_seleccionado != "Todos los Meses" else df_calidad.copy()
 df_pallets_f = df_pallets[df_pallets['MES'] == mes_seleccionado].copy() if mes_seleccionado != "Todos los Meses" else df_pallets.copy()
 df_def_f = df_def[df_def['MES'] == mes_seleccionado].copy() if mes_seleccionado != "Todos los Meses" else df_def.copy()
+df_tono_f = df_tono[df_tono['MES'] == mes_seleccionado].copy() if not df_tono.empty and mes_seleccionado != "Todos los Meses" else df_tono.copy()
 
 # Último día registrado
 ultimo_dia = df_calidad_f['FECHA'].max() if not df_calidad_f.empty else None
 df_ultimo_dia = df_calidad_f[df_calidad_f['FECHA'] == ultimo_dia] if ultimo_dia else pd.DataFrame()
 df_pallets_ultimo = df_pallets_f[df_pallets_f['FECHA'] == ultimo_dia] if ultimo_dia else pd.DataFrame()
 df_def_ultimo = df_def_f[df_def_f['FECHA'] == ultimo_dia] if ultimo_dia else pd.DataFrame()
+df_tono_ultimo = df_tono_f[df_tono_f['FECHA'] == ultimo_dia] if ultimo_dia and not df_tono_f.empty else pd.DataFrame()
 
 # Métricas Calculadas
 calidad_dia = df_ultimo_dia['PRIMERA'].values[0] if not df_ultimo_dia.empty else 0.0
@@ -197,9 +238,12 @@ calidad_acum = df_calidad_f['PRIMERA'].mean() if not df_calidad_f.empty else 0.0
 mts2_def_dia = df_def_ultimo['MTS2'].sum() if not df_def_ultimo.empty else 0.0
 mts2_def_acum = df_def_f['MTS2'].sum() if not df_def_f.empty else 0.0
 
-# Pallets (Suma real de columnas indicadas)
-pallets_1ra_dia = int(df_pallets_ultimo['PALLET DE 1RA'].sum()) if not df_pallets_ultimo.empty else 0
-pallets_1ra_acum = int(df_pallets_f['PALLET DE 1RA'].sum()) if not df_pallets_f.empty else 0
+# Cumplimiento a Tono (Tomamos el acumulado o promedio del último día)
+cumplimiento_tono = df_tono_ultimo['ACUMULADO'].values[0] if not df_tono_ultimo.empty and df_tono_ultimo['ACUMULADO'].values[0] > 0 else (df_tono_f['ACUMULADO'].mean() if not df_tono_f.empty else 0.0)
+
+# Pallets Totales (1ra + 2da + 3ra)
+pallets_total_dia = int(df_pallets_ultimo[['PALLET DE 1RA', 'PALLET DE 2DA', 'PALLET DE 3RA']].sum().sum()) if not df_pallets_ultimo.empty else 0
+pallets_total_acum = int(df_pallets_f[['PALLET DE 1RA', 'PALLET DE 2DA', 'PALLET DE 3RA']].sum().sum()) if not df_pallets_f.empty else 0
 
 pallets_rech_dia = int(df_pallets_ultimo['PALLET RECHAZADO'].sum()) if not df_pallets_ultimo.empty else 0
 pallets_rech_acum = int(df_pallets_f['PALLET RECHAZADO'].sum()) if not df_pallets_f.empty else 0
@@ -232,10 +276,10 @@ c5.markdown(f'<div class="kpi-card"><div class="kpi-title">Cumplimiento Tono</di
 
 st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
 
-# Tarjetas KPI Fila 2 (Pallets corregidos y Garantías)
+# Tarjetas KPI Fila 2
 p1, p2, p3, p4, p5 = st.columns(5)
-p1.markdown(f'<div class="kpi-card"><div class="kpi-title">Pallets 1ra Día</div><div class="kpi-value val-amber">{pallets_1ra_dia:,}</div></div>', unsafe_allow_html=True)
-p2.markdown(f'<div class="kpi-card"><div class="kpi-title">Pallets 1ra Acum</div><div class="kpi-value val-amber">{pallets_1ra_acum:,}</div></div>', unsafe_allow_html=True)
+p1.markdown(f'<div class="kpi-card"><div class="kpi-title">Pallets Totales Día</div><div class="kpi-value val-amber">{pallets_total_dia:,}</div></div>', unsafe_allow_html=True)
+p2.markdown(f'<div class="kpi-card"><div class="kpi-title">Pallets Totales Acum</div><div class="kpi-value val-amber">{pallets_total_acum:,}</div></div>', unsafe_allow_html=True)
 p3.markdown(f'<div class="kpi-card"><div class="kpi-title">Pallets Rech. Día</div><div class="kpi-value val-red">{pallets_rech_dia:,}</div></div>', unsafe_allow_html=True)
 p4.markdown(f'<div class="kpi-card"><div class="kpi-title">Pallets Rech. Acum</div><div class="kpi-value val-red">{pallets_rech_acum:,}</div></div>', unsafe_allow_html=True)
 p5.markdown(f'<div class="kpi-card"><div class="kpi-title">Garantías Total</div><div class="kpi-value val-purple">{garantias_total:,}</div></div>', unsafe_allow_html=True)
@@ -248,7 +292,7 @@ g1, g2 = st.columns(2)
 with g1:
     st.markdown('<div class="section-card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">🚨 Principales Defectos Afectados (m²)</div>', unsafe_allow_html=True)
-    if not df_def_f.empty:
+    if not df_def_f.empty and 'DEFECTO' in df_def_f.columns:
         df_top_def = df_def_f.groupby('DEFECTO')['MTS2'].sum().reset_index().sort_values('MTS2', ascending=True).tail(5)
         fig_bar = px.bar(df_top_def, x='MTS2', y='DEFECTO', orientation='h', text_auto='.2f')
         fig_bar.update_traces(marker_color='#ef4444')
@@ -262,8 +306,8 @@ with g2:
     st.markdown('<div class="section-card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">👤 % Afectación por Responsable del Defecto</div>', unsafe_allow_html=True)
     if not df_def_f.empty and 'RESPONSABLE' in df_def_f.columns:
-        df_resp = df_def_f.groupby('RESPONSABLE')['PORCENTAJE DE DEFECTO DEL ÁREA'].mean().reset_index()
-        fig_pie = px.pie(df_resp, values='PORCENTAJE DE DEFECTO DEL ÁREA', names='RESPONSABLE', hole=0.4, color_discrete_sequence=px.colors.qualitative.Set2)
+        df_resp = df_def_f.groupby('RESPONSABLE')['PORCENTAJE'].mean().reset_index()
+        fig_pie = px.pie(df_resp, values='PORCENTAJE', names='RESPONSABLE', hole=0.4, color_discrete_sequence=px.colors.qualitative.Set2)
         fig_pie.update_traces(textinfo='percent+label')
         fig_pie.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), showlegend=False)
         st.plotly_chart(fig_pie, use_container_width=True)
