@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
 import os
 
 # Configuración de página
@@ -53,11 +51,15 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 ADMIN_PASSWORD = "admin123"
+FILE_PATH = "REPORTE_ACTUAL.xlsx"
 
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
-# FUNCION PARA CARGAR Y CALCULAR DATOS DEL EXCEL
+# ---------------------------------------------------------
+# FUNCION PARA CARGAR DATOS
+# ---------------------------------------------------------
+@st.cache_data
 def load_excel_data(file_source):
     xl = pd.ExcelFile(file_source)
     sheet_names = xl.sheet_names
@@ -78,7 +80,7 @@ def load_excel_data(file_source):
 
     df_raw = pd.read_excel(file_source, sheet_name=selected_sheet, header=None)
     
-    # 1. Calidades, Mts2 y Pallets (Cols A:G)
+    # Calidades
     df_calidad = df_raw.iloc[2:, 0:7].copy()
     df_calidad.columns = ['FECHA', 'PRIMERA', 'SEGUNDA', 'TERCERA', 'QUINTA', 'MTS2', 'PALLETS_LIB']
     df_calidad['FECHA'] = pd.to_datetime(df_calidad['FECHA'], errors='coerce')
@@ -89,23 +91,22 @@ def load_excel_data(file_source):
         
     df_calidad['MES'] = df_calidad['FECHA'].dt.strftime('%B %Y').str.capitalize()
     
-    # 2. Garantías por Mes (Cols I:J)
+    # Garantías
     df_garantias = df_raw.iloc[2:14, 8:10].copy()
     df_garantias.columns = ['MES', 'CANTIDAD']
     df_garantias['CANTIDAD'] = pd.to_numeric(df_garantias['CANTIDAD'], errors='coerce').fillna(0)
     df_garantias = df_garantias[df_garantias['MES'] != 'TOTAL']
 
-    # 3. Modelos en Prueba (Cols L:M)
+    # Modelos
     df_pruebas = df_raw.iloc[2:15, 11:13].copy()
     df_pruebas.columns = ['MODELO', 'HORNO']
     df_pruebas = df_pruebas.dropna(subset=['MODELO'])
 
-    # 4. Modelos Autorizados (Cols O:P)
     df_autorizados = df_raw.iloc[2:15, 14:16].copy()
     df_autorizados.columns = ['MODELO', 'HORNO']
     df_autorizados = df_autorizados.dropna(subset=['MODELO'])
 
-    # 5. Defectos y Rechazos (Cols R:Y)
+    # Defectos
     df_def = df_raw.iloc[2:, 17:25].copy()
     df_def.columns = ['DIA', 'MODELO', 'FORMATO', 'HORNO', 'DEFECTO', 'MTS2', 'RESPONSABLE', 'PCT_AREA']
     df_def['DIA'] = pd.to_datetime(df_def['DIA'], errors='coerce')
@@ -117,7 +118,9 @@ def load_excel_data(file_source):
 
     return df_calidad, df_garantias, df_pruebas, df_autorizados, df_def, cumplimiento_tonos
 
-# Barra Lateral
+# ---------------------------------------------------------
+# BARRA LATERAL (ADMINISTRADOR)
+# ---------------------------------------------------------
 with st.sidebar:
     st.markdown("### 🟢 SISTEMA DE CALIDAD")
     st.divider()
@@ -135,24 +138,42 @@ with st.sidebar:
     else:
         st.success("Modo Admin Activo")
         uploaded_file = st.file_uploader("Subir / Actualizar Excel", type=["xlsx", "xls"])
+        
+        # Al subir un archivo, se guarda físicamente en el servidor
         if uploaded_file is not None:
-            st.session_state['excel_file'] = uploaded_file
-            st.success("¡Archivo cargado con éxito!")
-            st.rerun()
+            with open(FILE_PATH, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            st.cache_data.clear()
+            st.success("¡Archivo cargado y guardado con éxito!")
             
+        # Botón para limpiar la pantalla eliminando el archivo del servidor
+        if os.path.exists(FILE_PATH):
+            if st.button("🗑️ Eliminar Reporte Actual"):
+                os.remove(FILE_PATH)
+                st.cache_data.clear()
+                st.rerun()
+
         if st.button("Cerrar Sesión"):
             st.session_state['logged_in'] = False
             st.rerun()
 
-# SI NO HAY NINGÚN ARCHIVO CARGADO EN SESIÓN: PANTALLA TOTALMENTE EN BLANCO
-if 'excel_file' not in st.session_state or st.session_state['excel_file'] is None:
+# ---------------------------------------------------------
+# PANTALLA EN BLANCO HASTA QUE EXISTA EL ARCHIVO
+# ---------------------------------------------------------
+if not os.path.exists(FILE_PATH):
     st.warning("⚠️ Sin datos para mostrar. Inicia sesión como Administrador en la barra lateral para subir el archivo de reporte Excel.")
     st.stop()
 
-# Cargar los datos únicamente desde la sesión activa
-df_calidad, df_garantias, df_pruebas, df_autorizados, df_def, cumplimiento_tonos = load_excel_data(st.session_state['excel_file'])
+# ---------------------------------------------------------
+# CARGA Y PROCESAMIENTO
+# ---------------------------------------------------------
+try:
+    df_calidad, df_garantias, df_pruebas, df_autorizados, df_def, cumplimiento_tonos = load_excel_data(FILE_PATH)
+except Exception as e:
+    st.error(f"Error leyendo el archivo: Verifica el formato. Detalle: {e}")
+    st.stop()
 
-# Filtro lateral de Mes
+# Filtro de Mes
 st.sidebar.divider()
 meses_opciones = ["Todos los Meses"] + list(df_calidad['MES'].unique())
 mes_seleccionado = st.sidebar.selectbox("🗓️ Filtrar Mes:", options=meses_opciones, index=0)
@@ -164,7 +185,9 @@ else:
     df_calidad_f = df_calidad.copy()
     df_def_f = df_def.copy()
 
-# Header Principal
+# ---------------------------------------------------------
+# RENDERIZADO VISUAL
+# ---------------------------------------------------------
 st.markdown(f"""
 <div class="dashboard-header">
     <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -180,7 +203,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# CÁLCULOS Y RENDERIZADO DE PANTALLA
+# Cálculos
 ultimo_dia = df_calidad_f['FECHA'].max()
 df_ultimo_dia = df_calidad_f[df_calidad_f['FECHA'] == ultimo_dia]
 df_def_ultimo_dia = df_def_f[df_def_f['DIA'] == ultimo_dia]
@@ -197,6 +220,7 @@ total_garantias = int(df_garantias['CANTIDAD'].sum())
 rechazo_dia = df_def_ultimo_dia.groupby('DEFECTO')['MTS2'].sum().idxmax() if not df_def_ultimo_dia.empty else "N/A"
 rechazo_acum = df_def_f.groupby('DEFECTO')['MTS2'].sum().idxmax() if not df_def_f.empty else "N/A"
 
+# Tarjetas KPI
 c1, c2, c3, c4 = st.columns(4)
 c1.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad de Primera</div><div class="kpi-value val-green">{calidad_dia:.1f}% <span style="font-size:12px; color:#7f8c8d;">(Día)</span></div><div class="kpi-meta">Acum. Mes: <b>{calidad_acumulada:.1f}%</b></div></div>', unsafe_allow_html=True)
 c2.markdown(f'<div class="kpi-card"><div class="kpi-title">Volumen Mts²</div><div class="kpi-value val-blue">{mts2_dia:,.0f} <span style="font-size:12px; color:#7f8c8d;">m² (Día)</span></div><div class="kpi-meta">Acum. Mes: <b>{total_m2_acum:,.0f} m²</b></div></div>', unsafe_allow_html=True)
@@ -205,6 +229,7 @@ c4.markdown(f'<div class="kpi-card"><div class="kpi-title">Cumplimiento Tonos</d
 
 st.markdown("<br>", unsafe_allow_html=True)
 
+# Rechazos
 st.markdown('<div class="section-title">📌 Principales Motivos de Rechazo</div>', unsafe_allow_html=True)
 r1, r2 = st.columns(2)
 r1.info(f"**Principal Rechazo del Día:** {rechazo_dia}")
@@ -212,6 +237,7 @@ r2.warning(f"**Principal Rechazo Acumulado:** {rechazo_acum}")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
+# Modelos
 st.markdown('<div class="section-title">🧪 Control de Modelos</div>', unsafe_allow_html=True)
 m1, m2 = st.columns(2)
 
