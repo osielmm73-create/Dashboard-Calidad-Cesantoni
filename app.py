@@ -5,52 +5,43 @@ import plotly.express as px
 import plotly.graph_objects as go
 import io
 
-# Configuración de página
 st.set_page_config(
-    page_title="Dashboard - Sistema de Calidad",
+    page_title="Dashboard - Control de Calidad",
     page_icon="🟢",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilos CSS - Estilo Tarjetas Dashboard
+# Estilos CSS
 st.markdown("""
 <style>
     .stApp { background-color: #f0f2f5; }
-    
     .dashboard-header {
         background-color: #0f172a;
         color: white;
         padding: 16px 24px;
         border-radius: 12px;
         margin-bottom: 20px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
-    
     .kpi-card {
         background-color: #ffffff;
         border-radius: 12px;
         padding: 12px 8px;
-        box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px 0 rgba(0,0,0,0.06);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         border: 1px solid #e2e8f0;
         text-align: center;
-        height: 100%;
     }
-    
     .kpi-title { 
-        font-size: 10px; 
+        font-size: 11px; 
         font-weight: 700; 
         color: #64748b; 
         text-transform: uppercase;
-        letter-spacing: 0.5px;
     }
-    
     .kpi-value { 
         font-size: 20px; 
         font-weight: 800; 
-        margin: 6px 0 2px 0; 
+        margin-top: 4px;
     }
-    
     .val-green { color: #10b981; }
     .val-red { color: #ef4444; }
     .val-blue { color: #2563eb; }
@@ -61,17 +52,15 @@ st.markdown("""
         background-color: #ffffff;
         border-radius: 12px;
         padding: 18px;
-        box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         border: 1px solid #e2e8f0;
         margin-bottom: 20px;
     }
-
     .section-title {
         font-size: 13px;
         font-weight: 700;
         color: #1e293b;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
         margin-bottom: 12px;
         border-bottom: 2px solid #f1f5f9;
         padding-bottom: 6px;
@@ -81,305 +70,203 @@ st.markdown("""
 
 ADMIN_PASSWORD = "admin123"
 
-# Inicialización de Estados
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
 if 'excel_bytes' not in st.session_state:
     st.session_state['excel_bytes'] = None
 
-# ---------------------------------------------------------
-# FUNCIÓN DE LECTURA Y PARSEO DE EXCEL
-# ---------------------------------------------------------
+# Función auxiliar para encontrar filas de encabezado por nombre exacto
+def read_table_by_header(df_raw, header_names):
+    for r in range(len(df_raw)):
+        row_vals = [str(val).strip().upper() for val in df_raw.iloc[r].values]
+        if all(h in row_vals for h in header_names):
+            col_indices = [row_vals.index(h) for h in header_names]
+            df_sub = df_raw.iloc[r+1:, col_indices].copy()
+            df_sub.columns = header_names
+            return df_sub.dropna(subset=[header_names[0]])
+    return pd.DataFrame(columns=header_names)
+
 def parse_excel_data(file_bytes):
     xl = pd.ExcelFile(io.BytesIO(file_bytes))
     sheet_names = xl.sheet_names
+    selected_sheet = next((s for s in sheet_names if "DASH" in s.strip().upper() or "CALIDAD" in s.strip().upper()), sheet_names[0])
     
-    selected_sheet = next((s for s in sheet_names if s.strip().upper() == "DASHBOARD"), None)
-    if not selected_sheet:
-        selected_sheet = next((s for s in sheet_names if "DASH" in s.strip().upper()), sheet_names[0])
-
     df_raw = pd.read_excel(io.BytesIO(file_bytes), sheet_name=selected_sheet, header=None)
     
-    # 1. Tabla Principal de Calidad (Columnas A a G)
-    df_calidad = df_raw.iloc[2:, 0:7].copy()
-    df_calidad.columns = ['FECHA', 'PRIMERA', 'SEGUNDA', 'TERCERA', 'QUINTA', 'MTS2', 'PALLETS_LIB']
-    df_calidad['FECHA'] = pd.to_datetime(df_calidad['FECHA'], errors='coerce')
-    df_calidad = df_calidad.dropna(subset=['FECHA'])
+    # 1. Calidad y Metros
+    df_calidad = read_table_by_header(df_raw, ['FECHA', 'PRIMERA', 'SEGUNDA', 'TERCERA', 'QUINTA', 'MTS2', 'CALIDAD META'])
+    if not df_calidad.empty:
+        df_calidad['FECHA'] = pd.to_datetime(df_calidad['FECHA'], errors='coerce')
+        df_calidad = df_calidad.dropna(subset=['FECHA'])
+        for col in ['PRIMERA', 'SEGUNDA', 'TERCERA', 'QUINTA', 'MTS2', 'CALIDAD META']:
+            df_calidad[col] = pd.to_numeric(df_calidad[col], errors='coerce').fillna(0)
+        if df_calidad['PRIMERA'].max() <= 1.0 and df_calidad['PRIMERA'].max() > 0:
+            df_calidad['PRIMERA'] *= 100
+        df_calidad['MES'] = df_calidad['FECHA'].dt.strftime('%B %Y').str.capitalize()
+
+    # 2. Pallets
+    df_pallets = read_table_by_header(df_raw, ['FECHA', 'PALLET DE 1RA', 'PALLET DE 2DA', 'PALLET DE 3RA', 'PALLET RECHAZADO', 'PRINCIPAL RECHAZO'])
+    if not df_pallets.empty:
+        df_pallets['FECHA'] = pd.to_datetime(df_pallets['FECHA'], errors='coerce')
+        df_pallets = df_pallets.dropna(subset=['FECHA'])
+        for col in ['PALLET DE 1RA', 'PALLET DE 2DA', 'PALLET DE 3RA', 'PALLET RECHAZADO']:
+            df_pallets[col] = pd.to_numeric(df_pallets[col], errors='coerce').fillna(0)
+        df_pallets['MES'] = df_pallets['FECHA'].dt.strftime('%B %Y').str.capitalize()
+
+    # 3. Garantías
+    df_garantias = read_table_by_header(df_raw, ['MES', 'CANTIDAD'])
+    if not df_garantias.empty:
+        df_garantias['CANTIDAD'] = pd.to_numeric(df_garantias['CANTIDAD'], errors='coerce').fillna(0)
+
+    # 4. Modelos en Prueba y Autorizados
+    df_pruebas = read_table_by_header(df_raw, ['MODELO', 'HORNO'])
     
-    for col in ['PRIMERA', 'SEGUNDA', 'TERCERA', 'QUINTA', 'MTS2', 'PALLETS_LIB']:
-        df_calidad[col] = pd.to_numeric(df_calidad[col], errors='coerce').fillna(0)
-        
-    df_calidad['MES'] = df_calidad['FECHA'].dt.strftime('%B %Y').str.capitalize()
+    # 5. Defectos
+    df_def = read_table_by_header(df_raw, ['FECHA', 'MODELO', 'FORMATO', 'HORNO', 'DEFECTO', 'MTS2', 'RESPONSABLE', 'PORCENTAJE DE DEFECTO DEL ÁREA'])
+    if not df_def.empty:
+        df_def['FECHA'] = pd.to_datetime(df_def['FECHA'], errors='coerce').dt.floor('D')
+        df_def = df_def.dropna(subset=['FECHA', 'DEFECTO'])
+        df_def['MTS2'] = pd.to_numeric(df_def['MTS2'], errors='coerce').fillna(0)
+        df_def['PORCENTAJE DE DEFECTO DEL ÁREA'] = pd.to_numeric(df_def['PORCENTAJE DE DEFECTO DEL ÁREA'], errors='coerce').fillna(0)
+        df_def['MES'] = df_def['FECHA'].dt.strftime('%B %Y').str.capitalize()
 
-    # 2. Garantías y Cumplimiento a Tono (Columnas H a K)
-    df_garantias = df_raw.iloc[2:15, 7:11].copy()
-    df_garantias.columns = ['MES', 'GARANTIAS', 'CUMPLIMIENTO_TONO', 'EXTRA_TONO']
-    df_garantias['GARANTIAS'] = pd.to_numeric(df_garantias['GARANTIAS'], errors='coerce').fillna(0)
-    df_garantias['CUMPLIMIENTO_TONO'] = pd.to_numeric(df_garantias['CUMPLIMIENTO_TONO'], errors='coerce').fillna(0)
+    # 6. Cumplimiento a Tono (Celdas AA:AF -> Columnas 26 a 31, Filas 2 a 13)
+    cumplimiento_tono = 0.0
+    try:
+        df_tono = df_raw.iloc[1:13, 26:32].select_dtypes(include=[np.number])
+        if not df_tono.empty:
+            cumplimiento_tono = float(df_tono.mean().mean())
+            if cumplimiento_tono <= 1.0 and cumplimiento_tono > 0:
+                cumplimiento_tono *= 100
+    except Exception:
+        cumplimiento_tono = 0.0
 
-    # 3. Modelos
-    df_pruebas = df_raw.iloc[2:15, 11:13].copy()
-    df_pruebas.columns = ['MODELO', 'HORNO']
-    df_pruebas = df_pruebas.dropna(subset=['MODELO'])
+    return df_calidad, df_pallets, df_garantias, df_pruebas, df_def, cumplimiento_tono
 
-    df_autorizados = df_raw.iloc[2:15, 14:16].copy()
-    df_autorizados.columns = ['MODELO', 'HORNO']
-    df_autorizados = df_autorizados.dropna(subset=['MODELO'])
-
-    # 4. Tabla Separada de Defectos (Columnas Q a Y -> Índices 16 a 24)
-    df_def = df_raw.iloc[2:, 16:24].copy()
-    df_def.columns = ['DIA', 'MODELO', 'FORMATO', 'HORNO', 'DEFECTO', 'MTS2', 'RESPONSABLE', 'PCT_AREA']
-    
-    # Convertir 'DIA' estricto a fecha sin hora para igualar con la tabla principal
-    df_def['DIA'] = pd.to_datetime(df_def['DIA'], errors='coerce').dt.floor('D')
-    df_def = df_def.dropna(subset=['DIA', 'DEFECTO'])
-    
-    df_def['MTS2'] = pd.to_numeric(df_def['MTS2'], errors='coerce').fillna(0)
-    df_def['PCT_AREA'] = pd.to_numeric(df_def['PCT_AREA'], errors='coerce').fillna(0)
-    df_def['MES'] = df_def['DIA'].dt.strftime('%B %Y').str.capitalize()
-
-    return df_calidad, df_garantias, df_pruebas, df_autorizados, df_def
-
-# ---------------------------------------------------------
-# BARRA LATERAL
-# ---------------------------------------------------------
+# Sidebar
 with st.sidebar:
-    st.markdown("### 🟢 SISTEMA DE CALIDAD")
-    st.divider()
-    
-    st.subheader("🔑 Administrador")
+    st.markdown("### 🟢 CONTROL DE CALIDAD")
     if not st.session_state['logged_in']:
         pwd = st.text_input("Contraseña", type="password")
         if st.button("Iniciar Sesión"):
             if pwd == ADMIN_PASSWORD:
                 st.session_state['logged_in'] = True
-                st.success("Sesión iniciada")
                 st.rerun()
-            else:
-                st.error("Contraseña incorrecta")
     else:
         st.success("Modo Admin Activo")
-        uploaded_file = st.file_uploader("Subir / Actualizar Excel", type=["xlsx", "xls"], key="uploader")
-        
+        uploaded_file = st.file_uploader("Subir Archivo Excel", type=["xlsx", "xls"])
         if uploaded_file is not None:
             st.session_state['excel_bytes'] = uploaded_file.getvalue()
-            st.success("¡Archivo cargado correctamente!")
+            st.success("Cargado correctamente")
             
-        if st.session_state['excel_bytes'] is not None:
-            if st.button("🗑️ Eliminar Reporte Actual"):
-                st.session_state['excel_bytes'] = None
-                st.rerun()
-
         if st.button("Cerrar Sesión"):
             st.session_state['logged_in'] = False
             st.rerun()
 
-# ---------------------------------------------------------
-# VERIFICACIÓN DE DATOS
-# ---------------------------------------------------------
 if st.session_state['excel_bytes'] is None:
-    st.warning("⚠️ Sin datos para mostrar. Inicia sesión como Administrador en la barra lateral para subir el archivo de reporte Excel.")
+    st.warning("⚠️ Sube tu archivo Excel desde la barra lateral para visualizar el dashboard.")
     st.stop()
 
 try:
-    df_calidad, df_garantias, df_pruebas, df_autorizados, df_def = parse_excel_data(st.session_state['excel_bytes'])
+    df_calidad, df_pallets, df_garantias, df_pruebas, df_def, cumplimiento_tono = parse_excel_data(st.session_state['excel_bytes'])
 except Exception as e:
-    st.error(f"Error al procesar el archivo Excel: {e}")
+    st.error(f"Error procesando el Excel: {e}")
     st.stop()
 
 # Filtros
-st.sidebar.divider()
-meses_opciones = ["Todos los Meses"] + list(df_calidad['MES'].unique())
-mes_seleccionado = st.sidebar.selectbox("🗓️ Filtrar Mes:", options=meses_opciones, index=0)
-meta_calidad = st.sidebar.number_input("🎯 Meta de Calidad (%):", min_value=0.0, max_value=100.0, value=95.0, step=0.5)
+meses_opciones = ["Todos los Meses"] + list(df_calidad['MES'].unique()) if not df_calidad.empty else ["Todos los Meses"]
+mes_seleccionado = st.sidebar.selectbox("🗓️ Seleccionar Mes:", options=meses_opciones)
+meta_calidad = st.sidebar.number_input("🎯 Meta Calidad (%):", value=94.50, step=0.5)
 
-if mes_seleccionado != "Todos los Meses":
-    df_calidad_f = df_calidad[df_calidad['MES'] == mes_seleccionado].copy()
-    df_def_f = df_def[df_def['MES'] == mes_seleccionado].copy()
-    df_garantias_f = df_garantias[df_garantias['MES'].astype(str).str.capitalize() == mes_seleccionado].copy()
-else:
-    df_calidad_f = df_calidad.copy()
-    df_def_f = df_def.copy()
-    df_garantias_f = df_garantias.copy()
+# Filtrado por mes
+df_calidad_f = df_calidad[df_calidad['MES'] == mes_seleccionado].copy() if mes_seleccionado != "Todos los Meses" else df_calidad.copy()
+df_pallets_f = df_pallets[df_pallets['MES'] == mes_seleccionado].copy() if mes_seleccionado != "Todos los Meses" else df_pallets.copy()
+df_def_f = df_def[df_def['MES'] == mes_seleccionado].copy() if mes_seleccionado != "Todos los Meses" else df_def.copy()
 
-# ---------------------------------------------------------
-# CÁLCULOS DÍA ACTUAL Y ACUMULADOS
-# ---------------------------------------------------------
-ultimo_dia = df_calidad_f['FECHA'].dt.floor('D').max()
+# Último día registrado
+ultimo_dia = df_calidad_f['FECHA'].max() if not df_calidad_f.empty else None
+df_ultimo_dia = df_calidad_f[df_calidad_f['FECHA'] == ultimo_dia] if ultimo_dia else pd.DataFrame()
+df_pallets_ultimo = df_pallets_f[df_pallets_f['FECHA'] == ultimo_dia] if ultimo_dia else pd.DataFrame()
+df_def_ultimo = df_def_f[df_def_f['FECHA'] == ultimo_dia] if ultimo_dia else pd.DataFrame()
 
-df_ultimo_dia = df_calidad_f[df_calidad_f['FECHA'].dt.floor('D') == ultimo_dia]
-df_def_ultimo_dia = df_def_f[df_def_f['DIA'] == ultimo_dia]
+# Métricas Calculadas
+calidad_dia = df_ultimo_dia['PRIMERA'].values[0] if not df_ultimo_dia.empty else 0.0
+calidad_acum = df_calidad_f['PRIMERA'].mean() if not df_calidad_f.empty else 0.0
 
-# Métricas de Calidad y Metrajes
-calidad_dia = (df_ultimo_dia['PRIMERA'].mean() * 100) if not df_ultimo_dia.empty else 0.0
-total_m2_acum = df_calidad_f['MTS2'].sum()
-calidad_acum = ((df_calidad_f['PRIMERA'] * df_calidad_f['MTS2']).sum() / total_m2_acum * 100) if total_m2_acum > 0 else 0.0
+mts2_def_dia = df_def_ultimo['MTS2'].sum() if not df_def_ultimo.empty else 0.0
+mts2_def_acum = df_def_f['MTS2'].sum() if not df_def_f.empty else 0.0
 
-# Defectos (MTS2 Afectados)
-mts2_def_dia = df_def_ultimo_dia['MTS2'].sum()
-mts2_def_acum = df_def_f['MTS2'].sum()
+# Pallets (Suma real de columnas indicadas)
+pallets_1ra_dia = int(df_pallets_ultimo['PALLET DE 1RA'].sum()) if not df_pallets_ultimo.empty else 0
+pallets_1ra_acum = int(df_pallets_f['PALLET DE 1RA'].sum()) if not df_pallets_f.empty else 0
 
-# Pallets Liberados y Rechazados (Se redondean a enteros para evitar decimales como .94)
-pallets_lib_dia = int(round(df_ultimo_dia['PALLETS_LIB'].sum()))
-pallets_lib_acum = int(round(df_calidad_f['PALLETS_LIB'].sum()))
+pallets_rech_dia = int(df_pallets_ultimo['PALLET RECHAZADO'].sum()) if not df_pallets_ultimo.empty else 0
+pallets_rech_acum = int(df_pallets_f['PALLET RECHAZADO'].sum()) if not df_pallets_f.empty else 0
 
-# Estimación de Rechazados basándose en los registros de defectos por día / acum
-pallets_rech_dia = len(df_def_ultimo_dia)
-pallets_rech_acum = len(df_def_f)
+garantias_total = int(df_garantias['CANTIDAD'].sum()) if not df_garantias.empty else 0
 
-# Garantías y Cumplimiento a Tono
-garantias_total = int(df_garantias_f['GARANTIAS'].sum())
-cumplimiento_tono = df_garantias_f['CUMPLIMIENTO_TONO'].mean()
-if cumplimiento_tono <= 1.0 and cumplimiento_tono > 0:
-    cumplimiento_tono *= 100
-
-# ---------------------------------------------------------
-# RENDERIZADO EN PANTALLA
-# ---------------------------------------------------------
+# Visualización Header
 st.markdown(f"""
 <div class="dashboard-header">
     <div style="display: flex; justify-content: space-between; align-items: center;">
         <div>
-            <h2 style="margin:0; font-weight:800; font-size:20px; letter-spacing:0.5px;">DASHBOARD – CONTROL DE CALIDAD</h2>
-            <p style="margin:2px 0 0 0; font-size:12px; color:#94a3b8; font-weight:600;">PRODUCTO TERMINADO – PISO CERÁMICO</p>
+            <h3 style="margin:0;">PRODUCTO TERMINADO - PISO CERÁMICO</h3>
+            <p style="margin:0; font-size:12px; color:#94a3b8;">Monitoreo Operativo de Calidad</p>
         </div>
         <div style="text-align: right;">
-            <span style="font-size:12px; color:#94a3b8;">Último Día Capturado:</span><br>
+            <span style="font-size:12px; color:#94a3b8;">Último Día:</span><br>
             <span style="font-size:14px; color:#10b981; font-weight:bold;">{ultimo_dia.strftime('%d/%m/%Y') if pd.notnull(ultimo_dia) else 'N/A'}</span>
         </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# FILA 1 DE TARJETAS KPI
+# Tarjetas KPI Fila 1
 c1, c2, c3, c4, c5 = st.columns(5)
-with c1:
-    col_class = "val-green" if calidad_dia >= meta_calidad else "val-red"
-    st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Día</div><div class="kpi-value {col_class}">{calidad_dia:.2f}%</div></div>', unsafe_allow_html=True)
-with c2:
-    col_class_ac = "val-green" if calidad_acum >= meta_calidad else "val-red"
-    st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Acum</div><div class="kpi-value {col_class_ac}">{calidad_acum:.2f}%</div></div>', unsafe_allow_html=True)
-with c3:
-    st.markdown(f'<div class="kpi-card"><div class="kpi-title">Defectos Día</div><div class="kpi-value val-red">{mts2_def_dia:,.2f}<span style="font-size:10px;"> m²</span></div></div>', unsafe_allow_html=True)
-with c4:
-    st.markdown(f'<div class="kpi-card"><div class="kpi-title">Defectos Acum</div><div class="kpi-value val-red">{mts2_def_acum:,.2f}<span style="font-size:10px;"> m²</span></div></div>', unsafe_allow_html=True)
-with c5:
-    st.markdown(f'<div class="kpi-card"><div class="kpi-title">Garantías Total</div><div class="kpi-value val-purple">{garantias_total}</div></div>', unsafe_allow_html=True)
+c1.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Día</div><div class="kpi-value val-green">{calidad_dia:.2f}%</div></div>', unsafe_allow_html=True)
+c2.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Acum</div><div class="kpi-value val-green">{calidad_acum:.2f}%</div></div>', unsafe_allow_html=True)
+c3.markdown(f'<div class="kpi-card"><div class="kpi-title">Defectos Día</div><div class="kpi-value val-red">{mts2_def_dia:,.2f} m²</div></div>', unsafe_allow_html=True)
+c4.markdown(f'<div class="kpi-card"><div class="kpi-title">Defectos Acum</div><div class="kpi-value val-red">{mts2_def_acum:,.2f} m²</div></div>', unsafe_allow_html=True)
+c5.markdown(f'<div class="kpi-card"><div class="kpi-title">Cumplimiento Tono</div><div class="kpi-value val-blue">{cumplimiento_tono:.1f}%</div></div>', unsafe_allow_html=True)
 
 st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
 
-# FILA 2 DE TARJETAS KPI (PALLETS Y TONO)
+# Tarjetas KPI Fila 2 (Pallets corregidos y Garantías)
 p1, p2, p3, p4, p5 = st.columns(5)
-with p1:
-    st.markdown(f'<div class="kpi-card"><div class="kpi-title">Pallets Lib. Día</div><div class="kpi-value val-amber">{pallets_lib_dia:,}</div></div>', unsafe_allow_html=True)
-with p2:
-    st.markdown(f'<div class="kpi-card"><div class="kpi-title">Pallets Lib. Acum</div><div class="kpi-value val-amber">{pallets_lib_acum:,}</div></div>', unsafe_allow_html=True)
-with p3:
-    st.markdown(f'<div class="kpi-card"><div class="kpi-title">Pallets Rech. Día</div><div class="kpi-value val-red">{pallets_rech_dia:,}</div></div>', unsafe_allow_html=True)
-with p4:
-    st.markdown(f'<div class="kpi-card"><div class="kpi-title">Pallets Rech. Acum</div><div class="kpi-value val-red">{pallets_rech_acum:,}</div></div>', unsafe_allow_html=True)
-with p5:
-    st.markdown(f'<div class="kpi-card"><div class="kpi-title">Cumplimiento Tono</div><div class="kpi-value val-blue">{cumplimiento_tono:.1f}%</div></div>', unsafe_allow_html=True)
+p1.markdown(f'<div class="kpi-card"><div class="kpi-title">Pallets 1ra Día</div><div class="kpi-value val-amber">{pallets_1ra_dia:,}</div></div>', unsafe_allow_html=True)
+p2.markdown(f'<div class="kpi-card"><div class="kpi-title">Pallets 1ra Acum</div><div class="kpi-value val-amber">{pallets_1ra_acum:,}</div></div>', unsafe_allow_html=True)
+p3.markdown(f'<div class="kpi-card"><div class="kpi-title">Pallets Rech. Día</div><div class="kpi-value val-red">{pallets_rech_dia:,}</div></div>', unsafe_allow_html=True)
+p4.markdown(f'<div class="kpi-card"><div class="kpi-title">Pallets Rech. Acum</div><div class="kpi-value val-red">{pallets_rech_acum:,}</div></div>', unsafe_allow_html=True)
+p5.markdown(f'<div class="kpi-card"><div class="kpi-title">Garantías Total</div><div class="kpi-value val-purple">{garantias_total:,}</div></div>', unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# GRÁFICAS
-g1, g2 = st.columns([1, 1])
+# Gráficas
+g1, g2 = st.columns(2)
 
 with g1:
     st.markdown('<div class="section-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">📈 Tendencia Diaria de Calidad de Primera (%) vs Meta</div>', unsafe_allow_html=True)
-    
-    df_trend = df_calidad_f.sort_values('FECHA').copy()
-    df_trend['PRIMERA_PCT'] = df_trend['PRIMERA'] * 100
-    df_trend['CUMPLE_META'] = df_trend['PRIMERA_PCT'] >= meta_calidad
-    
-    fig_line = go.Figure()
-
-    fig_line.add_trace(go.Scatter(
-        x=df_trend['FECHA'],
-        y=[meta_calidad] * len(df_trend),
-        mode='lines',
-        name=f'Meta ({meta_calidad:.2f}%)',
-        line=dict(color='#ef4444', width=2, dash='dash')
-    ))
-
-    fig_line.add_trace(go.Scatter(
-        x=df_trend['FECHA'],
-        y=df_trend['PRIMERA_PCT'],
-        mode='lines+markers+text',
-        name='Calidad Real',
-        text=df_trend['PRIMERA_PCT'].map('{:.2f}%'.format),
-        textposition="top center",
-        line=dict(color='#2563eb', width=3),
-        marker=dict(
-            size=9,
-            color=np.where(df_trend['CUMPLE_META'], '#10b981', '#ef4444')
-        )
-    ))
-
-    fig_line.update_layout(
-        height=300,
-        margin=dict(l=10, r=10, t=25, b=10),
-        xaxis_title=None,
-        yaxis_title=None,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)'
-    )
-    
-    st.plotly_chart(fig_line, use_container_width=True)
+    st.markdown('<div class="section-title">🚨 Principales Defectos Afectados (m²)</div>', unsafe_allow_html=True)
+    if not df_def_f.empty:
+        df_top_def = df_def_f.groupby('DEFECTO')['MTS2'].sum().reset_index().sort_values('MTS2', ascending=True).tail(5)
+        fig_bar = px.bar(df_top_def, x='MTS2', y='DEFECTO', orientation='h', text_auto='.2f')
+        fig_bar.update_traces(marker_color='#ef4444')
+        fig_bar.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), xaxis_title=None, yaxis_title=None)
+        st.plotly_chart(fig_bar, use_container_width=True)
+    else:
+        st.info("Sin registros de defectos.")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with g2:
     st.markdown('<div class="section-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">🚨 Principales Defectos Afectados (m²)</div>', unsafe_allow_html=True)
-    
-    df_top_def = df_def_f.groupby('DEFECTO')['MTS2'].sum().reset_index()
-    df_top_def = df_top_def.sort_values('MTS2', ascending=True).tail(5)
-    
-    if not df_top_def.empty and df_top_def['MTS2'].sum() > 0:
-        fig_bar = px.bar(
-            df_top_def, x='MTS2', y='DEFECTO', orientation='h',
-            text=df_top_def['MTS2'].map('{:,.2f} m²'.format)
-        )
-        fig_bar.update_traces(marker_color='#ef4444', textposition='outside')
-        fig_bar.update_layout(
-            height=300, margin=dict(l=10, r=10, t=25, b=10),
-            xaxis_title=None, yaxis_title=None,
-            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
-        )
-        st.plotly_chart(fig_bar, use_container_width=True)
+    st.markdown('<div class="section-title">👤 % Afectación por Responsable del Defecto</div>', unsafe_allow_html=True)
+    if not df_def_f.empty and 'RESPONSABLE' in df_def_f.columns:
+        df_resp = df_def_f.groupby('RESPONSABLE')['PORCENTAJE DE DEFECTO DEL ÁREA'].mean().reset_index()
+        fig_pie = px.pie(df_resp, values='PORCENTAJE DE DEFECTO DEL ÁREA', names='RESPONSABLE', hole=0.4, color_discrete_sequence=px.colors.qualitative.Set2)
+        fig_pie.update_traces(textinfo='percent+label')
+        fig_pie.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), showlegend=False)
+        st.plotly_chart(fig_pie, use_container_width=True)
     else:
-        st.info("No se registraron defectos en el período seleccionado.")
+        st.info("Sin datos de responsables o porcentajes.")
     st.markdown('</div>', unsafe_allow_html=True)
-
-# DETALLE DE DEFECTOS DEL ÚLTIMO DÍA
-st.markdown('<div class="section-card">', unsafe_allow_html=True)
-st.markdown(f'<div class="section-title">📋 Registro Detallado de Defectos del Día ({ultimo_dia.strftime("%d/%m/%Y") if pd.notnull(ultimo_dia) else "N/A"})</div>', unsafe_allow_html=True)
-
-if not df_def_ultimo_dia.empty:
-    df_show_def = df_def_ultimo_dia[['DIA', 'MODELO', 'FORMATO', 'HORNO', 'DEFECTO', 'MTS2', 'RESPONSABLE', 'PCT_AREA']].copy()
-    df_show_def['DIA'] = df_show_def['DIA'].dt.strftime('%d/%m/%Y')
-    df_show_def['PCT_AREA'] = df_show_def['PCT_AREA'].apply(lambda x: f"{x*100:.2f}%" if x < 1 else f"{x:.2f}%")
-    st.dataframe(df_show_def, use_container_width=True, hide_index=True)
-else:
-    st.info("No hay eventos de defectos registrados en la última fecha.")
-
-st.markdown('</div>', unsafe_allow_html=True)
-
-# MODELOS Y PRUEBAS
-st.markdown('<div class="section-card">', unsafe_allow_html=True)
-st.markdown('<div class="section-title">🧪 Control de Modelos Cerámicos</div>', unsafe_allow_html=True)
-m1, m2 = st.columns(2)
-
-with m1:
-    st.markdown("##### MODELOS EN PRUEBA")
-    st.dataframe(df_pruebas, use_container_width=True, hide_index=True)
-
-with m2:
-    st.markdown("##### MODELOS AUTORIZADOS")
-    st.dataframe(df_autorizados, use_container_width=True, hide_index=True)
-
-st.markdown('</div>', unsafe_allow_html=True)
