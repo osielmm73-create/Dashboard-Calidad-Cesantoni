@@ -57,10 +57,7 @@ ADMIN_PASSWORD = "admin123"
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
-# ---------------------------------------------------------
-# FUNCION PARA CARGAR Y CALCULAR DATOS EXCLUSIVOS DEL EXCEL
-# ---------------------------------------------------------
-@st.cache_data
+# FUNCION PARA CARGAR Y CALCULAR DATOS DEL EXCEL
 def load_excel_data(file_source):
     xl = pd.ExcelFile(file_source)
     sheet_names = xl.sheet_names
@@ -81,7 +78,7 @@ def load_excel_data(file_source):
 
     df_raw = pd.read_excel(file_source, sheet_name=selected_sheet, header=None)
     
-    # 1. Calidades, Mts2 y Liberación de Pallets por Día (Cols A:G)
+    # 1. Calidades, Mts2 y Pallets (Cols A:G)
     df_calidad = df_raw.iloc[2:, 0:7].copy()
     df_calidad.columns = ['FECHA', 'PRIMERA', 'SEGUNDA', 'TERCERA', 'QUINTA', 'MTS2', 'PALLETS_LIB']
     df_calidad['FECHA'] = pd.to_datetime(df_calidad['FECHA'], errors='coerce')
@@ -116,13 +113,9 @@ def load_excel_data(file_source):
     df_def['MTS2'] = pd.to_numeric(df_def['MTS2'], errors='coerce').fillna(0)
     df_def['MES'] = df_def['DIA'].dt.strftime('%B %Y').str.capitalize()
 
-    # 6. Cumplimiento a Tonos
     cumplimiento_tonos = 98.2
 
     return df_calidad, df_garantias, df_pruebas, df_autorizados, df_def, cumplimiento_tonos
-
-# Verificar únicamente si existe un archivo previamente cargado por el administrador
-target_file = "REPORTE_ACTUAL.xlsx" if os.path.exists("REPORTE_ACTUAL.xlsx") else None
 
 # Barra Lateral
 with st.sidebar:
@@ -141,24 +134,23 @@ with st.sidebar:
                 st.error("Contraseña incorrecta")
     else:
         st.success("Modo Admin Activo")
-        uploaded_file = st.file_uploader("Actualizar Reporte Excel", type=["xlsx", "xls"])
+        uploaded_file = st.file_uploader("Subir / Actualizar Excel", type=["xlsx", "xls"])
         if uploaded_file is not None:
-            with open("REPORTE_ACTUAL.xlsx", "wb") as f:
-                f.write(uploaded_file.getbuffer())
-            st.cache_data.clear()
-            st.success("¡Datos actualizados!")
+            st.session_state['excel_file'] = uploaded_file
+            st.success("¡Archivo cargado con éxito!")
             st.rerun()
+            
         if st.button("Cerrar Sesión"):
             st.session_state['logged_in'] = False
             st.rerun()
 
-# SI NO HAY ARCHIVO CADO EN EL SERVIDOR: MOSTRAR PANTALLA EN BLANCO
-if not target_file:
-    st.info("ℹ️ Esperando la carga del archivo de reporte. Inicia sesión como administrador en la barra lateral para subir el Excel.")
+# SI NO HAY NINGÚN ARCHIVO CARGADO EN SESIÓN: PANTALLA TOTALMENTE EN BLANCO
+if 'excel_file' not in st.session_state or st.session_state['excel_file'] is None:
+    st.warning("⚠️ Sin datos para mostrar. Inicia sesión como Administrador en la barra lateral para subir el archivo de reporte Excel.")
     st.stop()
 
-# Cargar los datos guardados en el servidor
-df_calidad, df_garantias, df_pruebas, df_autorizados, df_def, cumplimiento_tonos = load_excel_data(target_file)
+# Cargar los datos únicamente desde la sesión activa
+df_calidad, df_garantias, df_pruebas, df_autorizados, df_def, cumplimiento_tonos = load_excel_data(st.session_state['excel_file'])
 
 # Filtro lateral de Mes
 st.sidebar.divider()
@@ -188,7 +180,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# CÁLCULOS
+# CÁLCULOS Y RENDERIZADO DE PANTALLA
 ultimo_dia = df_calidad_f['FECHA'].max()
 df_ultimo_dia = df_calidad_f[df_calidad_f['FECHA'] == ultimo_dia]
 df_def_ultimo_dia = df_def_f[df_def_f['DIA'] == ultimo_dia]
@@ -205,7 +197,6 @@ total_garantias = int(df_garantias['CANTIDAD'].sum())
 rechazo_dia = df_def_ultimo_dia.groupby('DEFECTO')['MTS2'].sum().idxmax() if not df_def_ultimo_dia.empty else "N/A"
 rechazo_acum = df_def_f.groupby('DEFECTO')['MTS2'].sum().idxmax() if not df_def_f.empty else "N/A"
 
-# RENDERIZADO
 c1, c2, c3, c4 = st.columns(4)
 c1.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad de Primera</div><div class="kpi-value val-green">{calidad_dia:.1f}% <span style="font-size:12px; color:#7f8c8d;">(Día)</span></div><div class="kpi-meta">Acum. Mes: <b>{calidad_acumulada:.1f}%</b></div></div>', unsafe_allow_html=True)
 c2.markdown(f'<div class="kpi-card"><div class="kpi-title">Volumen Mts²</div><div class="kpi-value val-blue">{mts2_dia:,.0f} <span style="font-size:12px; color:#7f8c8d;">m² (Día)</span></div><div class="kpi-meta">Acum. Mes: <b>{total_m2_acum:,.0f} m²</b></div></div>', unsafe_allow_html=True)
