@@ -83,11 +83,29 @@ if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
 # ---------------------------------------------------------
-# FUNCION PARA CARGAR DATOS DEL EXCEL
+# FUNCION PARA CARGAR DATOS DEL EXCEL (CON DETECCIÓN FLEXIBLE DE PESTAÑA)
 # ---------------------------------------------------------
 @st.cache_data
 def load_excel_data(file_source):
-    df_raw = pd.read_excel(file_source, sheet_name='DASHBOARD', header=None)
+    xl = pd.ExcelFile(file_source)
+    sheet_names = xl.sheet_names
+    
+    # Buscar pestaña 'DASHBOARD' sin importar espacios vacíos o mayúsculas
+    selected_sheet = None
+    for s in sheet_names:
+        if s.strip().upper() == "DASHBOARD":
+            selected_sheet = s
+            break
+            
+    if not selected_sheet:
+        for s in sheet_names:
+            if "DASH" in s.strip().upper():
+                selected_sheet = s
+                break
+    if not selected_sheet:
+        selected_sheet = sheet_names[0]
+
+    df_raw = pd.read_excel(file_source, sheet_name=selected_sheet, header=None)
     
     # 1. Calidades y Mts2 (Columnas A:G)
     df_calidad = df_raw.iloc[2:, 0:7].copy()
@@ -171,7 +189,7 @@ with st.sidebar:
 if target_file:
     df_calidad, df_garantias, df_pruebas, df_autorizados, df_def = load_excel_data(target_file)
 else:
-    st.error("⚠️ No se encontró el archivo de Excel. Inicia sesión como Admin en la barra lateral para subir uno.")
+    st.error("⚠️ No se encontró el archivo de Excel en el servidor.")
     st.stop()
 
 # Filtro por Mes en Barra Lateral
