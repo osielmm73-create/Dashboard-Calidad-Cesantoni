@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
 import os
 
 # Configuración de página
@@ -11,41 +13,67 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilos CSS
+# Estilos CSS - Estilo Tarjetas Dashboard
 st.markdown("""
 <style>
-    .stApp { background-color: #f4f6f9; }
+    .stApp { background-color: #f0f2f5; }
+    
     .dashboard-header {
-        background-color: #1a252f;
+        background-color: #0f172a;
         color: white;
-        padding: 15px 25px;
-        border-radius: 8px;
+        padding: 16px 24px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    
+    .kpi-card {
+        background-color: #ffffff;
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px 0 rgba(0,0,0,0.06);
+        border: 1px solid #e2e8f0;
+        text-align: center;
+        height: 100%;
+    }
+    
+    .kpi-title { 
+        font-size: 11px; 
+        font-weight: 700; 
+        color: #64748b; 
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .kpi-value { 
+        font-size: 24px; 
+        font-weight: 800; 
+        margin: 8px 0 2px 0; 
+    }
+    
+    .val-green { color: #10b981; }
+    .val-red { color: #ef4444; }
+    .val-blue { color: #2563eb; }
+    .val-amber { color: #f59e0b; }
+
+    .section-card {
+        background-color: #ffffff;
+        border-radius: 12px;
+        padding: 18px;
+        box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1);
+        border: 1px solid #e2e8f0;
         margin-bottom: 20px;
     }
-    .kpi-card {
-        background-color: white;
-        border-radius: 10px;
-        padding: 15px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        border: 1px solid #e1e8ed;
-        text-align: center;
-    }
-    .kpi-title { font-size: 11px; font-weight: 700; color: #5a6578; text-transform: uppercase; }
-    .kpi-value { font-size: 22px; font-weight: 800; margin: 5px 0; }
-    .kpi-meta { font-size: 11px; color: #7f8c8d; }
-    .val-green { color: #27ae60; }
-    .val-red { color: #e74c3c; }
-    .val-orange { color: #e67e22; }
-    .val-blue { color: #2980b9; }
 
     .section-title {
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 700;
-        color: #1a252f;
-        margin-bottom: 10px;
+        color: #1e293b;
         text-transform: uppercase;
-        border-bottom: 2px solid #e1e8ed;
-        padding-bottom: 4px;
+        letter-spacing: 0.5px;
+        margin-bottom: 12px;
+        border-bottom: 2px solid #f1f5f9;
+        padding-bottom: 6px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -64,23 +92,13 @@ def load_excel_data(file_source):
     xl = pd.ExcelFile(file_source)
     sheet_names = xl.sheet_names
     
-    selected_sheet = None
-    for s in sheet_names:
-        if s.strip().upper() == "DASHBOARD":
-            selected_sheet = s
-            break
-            
+    selected_sheet = next((s for s in sheet_names if s.strip().upper() == "DASHBOARD"), None)
     if not selected_sheet:
-        for s in sheet_names:
-            if "DASH" in s.strip().upper():
-                selected_sheet = s
-                break
-    if not selected_sheet:
-        selected_sheet = sheet_names[0]
+        selected_sheet = next((s for s in sheet_names if "DASH" in s.strip().upper()), sheet_names[0])
 
     df_raw = pd.read_excel(file_source, sheet_name=selected_sheet, header=None)
     
-    # Calidades
+    # 1. Calidades, Mts2 y Pallets
     df_calidad = df_raw.iloc[2:, 0:7].copy()
     df_calidad.columns = ['FECHA', 'PRIMERA', 'SEGUNDA', 'TERCERA', 'QUINTA', 'MTS2', 'PALLETS_LIB']
     df_calidad['FECHA'] = pd.to_datetime(df_calidad['FECHA'], errors='coerce')
@@ -91,13 +109,13 @@ def load_excel_data(file_source):
         
     df_calidad['MES'] = df_calidad['FECHA'].dt.strftime('%B %Y').str.capitalize()
     
-    # Garantías
+    # 2. Garantías
     df_garantias = df_raw.iloc[2:14, 8:10].copy()
     df_garantias.columns = ['MES', 'CANTIDAD']
     df_garantias['CANTIDAD'] = pd.to_numeric(df_garantias['CANTIDAD'], errors='coerce').fillna(0)
     df_garantias = df_garantias[df_garantias['MES'] != 'TOTAL']
 
-    # Modelos
+    # 3. Modelos
     df_pruebas = df_raw.iloc[2:15, 11:13].copy()
     df_pruebas.columns = ['MODELO', 'HORNO']
     df_pruebas = df_pruebas.dropna(subset=['MODELO'])
@@ -106,7 +124,7 @@ def load_excel_data(file_source):
     df_autorizados.columns = ['MODELO', 'HORNO']
     df_autorizados = df_autorizados.dropna(subset=['MODELO'])
 
-    # Defectos
+    # 4. Defectos y Rechazos en Liberación de Pallet
     df_def = df_raw.iloc[2:, 17:25].copy()
     df_def.columns = ['DIA', 'MODELO', 'FORMATO', 'HORNO', 'DEFECTO', 'MTS2', 'RESPONSABLE', 'PCT_AREA']
     df_def['DIA'] = pd.to_datetime(df_def['DIA'], errors='coerce')
@@ -114,12 +132,10 @@ def load_excel_data(file_source):
     df_def['MTS2'] = pd.to_numeric(df_def['MTS2'], errors='coerce').fillna(0)
     df_def['MES'] = df_def['DIA'].dt.strftime('%B %Y').str.capitalize()
 
-    cumplimiento_tonos = 98.2
-
-    return df_calidad, df_garantias, df_pruebas, df_autorizados, df_def, cumplimiento_tonos
+    return df_calidad, df_garantias, df_pruebas, df_autorizados, df_def
 
 # ---------------------------------------------------------
-# BARRA LATERAL (ADMINISTRADOR)
+# BARRA LATERAL (ADMINISTRADOR Y CONFIGURACIÓN)
 # ---------------------------------------------------------
 with st.sidebar:
     st.markdown("### 🟢 SISTEMA DE CALIDAD")
@@ -139,14 +155,13 @@ with st.sidebar:
         st.success("Modo Admin Activo")
         uploaded_file = st.file_uploader("Subir / Actualizar Excel", type=["xlsx", "xls"])
         
-        # Al subir un archivo, se guarda físicamente en el servidor
         if uploaded_file is not None:
             with open(FILE_PATH, "wb") as f:
                 f.write(uploaded_file.getbuffer())
             st.cache_data.clear()
-            st.success("¡Archivo cargado y guardado con éxito!")
+            st.success("¡Archivo guardado!")
+            st.rerun()
             
-        # Botón para limpiar la pantalla eliminando el archivo del servidor
         if os.path.exists(FILE_PATH):
             if st.button("🗑️ Eliminar Reporte Actual"):
                 os.remove(FILE_PATH)
@@ -158,93 +173,179 @@ with st.sidebar:
             st.rerun()
 
 # ---------------------------------------------------------
-# PANTALLA EN BLANCO HASTA QUE EXISTA EL ARCHIVO
+# CONTROL PANTALLA EN BLANCO
 # ---------------------------------------------------------
 if not os.path.exists(FILE_PATH):
     st.warning("⚠️ Sin datos para mostrar. Inicia sesión como Administrador en la barra lateral para subir el archivo de reporte Excel.")
     st.stop()
 
-# ---------------------------------------------------------
-# CARGA Y PROCESAMIENTO
-# ---------------------------------------------------------
-try:
-    df_calidad, df_garantias, df_pruebas, df_autorizados, df_def, cumplimiento_tonos = load_excel_data(FILE_PATH)
-except Exception as e:
-    st.error(f"Error leyendo el archivo: Verifica el formato. Detalle: {e}")
-    st.stop()
+df_calidad, df_garantias, df_pruebas, df_autorizados, df_def = load_excel_data(FILE_PATH)
 
-# Filtro de Mes
+# Filtros en Barra Lateral
 st.sidebar.divider()
 meses_opciones = ["Todos los Meses"] + list(df_calidad['MES'].unique())
 mes_seleccionado = st.sidebar.selectbox("🗓️ Filtrar Mes:", options=meses_opciones, index=0)
 
+meta_calidad = st.sidebar.number_input("🎯 Meta de Calidad (%):", min_value=0.0, max_value=100.0, value=95.0, step=0.5)
+
 if mes_seleccionado != "Todos los Meses":
-    df_calidad_f = df_calidad[df_calidad['MES'] == mes_seleccionado]
-    df_def_f = df_def[df_def['MES'] == mes_seleccionado]
+    df_calidad_f = df_calidad[df_calidad['MES'] == mes_seleccionado].copy()
+    df_def_f = df_def[df_def['MES'] == mes_seleccionado].copy()
 else:
     df_calidad_f = df_calidad.copy()
     df_def_f = df_def.copy()
 
-# ---------------------------------------------------------
-# RENDERIZADO VISUAL
-# ---------------------------------------------------------
+# Header Principal
 st.markdown(f"""
 <div class="dashboard-header">
     <div style="display: flex; justify-content: space-between; align-items: center;">
         <div>
-            <h2 style="margin:0; font-weight:800; font-size:22px;">DASHBOARD – CONTROL DE CALIDAD</h2>
-            <p style="margin:0; font-size:12px; color:#bdc3c7; font-weight:600;">RESUMEN OPERATIVO</p>
+            <h2 style="margin:0; font-weight:800; font-size:20px; letter-spacing:0.5px;">DASHBOARD – CONTROL DE CALIDAD</h2>
+            <p style="margin:2px 0 0 0; font-size:12px; color:#94a3b8; font-weight:600;">PRODUCTO TERMINADO – PISO CERÁMICO</p>
         </div>
         <div style="text-align: right;">
-            <span style="font-size:13px; font-weight:bold;">📅 Período:</span> 
-            <span style="font-size:12px; color:#27ae60; font-weight:bold;">{mes_seleccionado}</span>
+            <span style="font-size:12px; color:#94a3b8;">Período Seleccionado:</span><br>
+            <span style="font-size:14px; color:#10b981; font-weight:bold;">{mes_seleccionado}</span>
         </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# Cálculos
+# ---------------------------------------------------------
+# CÁLCULOS
+# ---------------------------------------------------------
 ultimo_dia = df_calidad_f['FECHA'].max()
 df_ultimo_dia = df_calidad_f[df_calidad_f['FECHA'] == ultimo_dia]
 df_def_ultimo_dia = df_def_f[df_def_f['DIA'] == ultimo_dia]
 
-calidad_dia = (df_ultimo_dia['PRIMERA'].mean() * 100) if not df_ultimo_dia.empty else 0
+calidad_dia = (df_ultimo_dia['PRIMERA'].mean() * 100) if not df_ultimo_dia.empty else 0.0
 total_m2_acum = df_calidad_f['MTS2'].sum()
-calidad_acumulada = ((df_calidad_f['PRIMERA'] * df_calidad_f['MTS2']).sum() / total_m2_acum * 100) if total_m2_acum > 0 else 0
+calidad_acum = ((df_calidad_f['PRIMERA'] * df_calidad_f['MTS2']).sum() / total_m2_acum * 100) if total_m2_acum > 0 else 0.0
 
-mts2_dia = df_ultimo_dia['MTS2'].sum() if not df_ultimo_dia.empty else 0
-pallets_dia = df_ultimo_dia['PALLETS_LIB'].sum() if not df_ultimo_dia.empty else 0
+mts2_dia = df_ultimo_dia['MTS2'].sum() if not df_ultimo_dia.empty else 0.0
+pallets_dia = df_ultimo_dia['PALLETS_LIB'].sum() if not df_ultimo_dia.empty else 0.0
 pallets_acum = df_calidad_f['PALLETS_LIB'].sum()
-total_garantias = int(df_garantias['CANTIDAD'].sum())
 
-rechazo_dia = df_def_ultimo_dia.groupby('DEFECTO')['MTS2'].sum().idxmax() if not df_def_ultimo_dia.empty else "N/A"
-rechazo_acum = df_def_f.groupby('DEFECTO')['MTS2'].sum().idxmax() if not df_def_f.empty else "N/A"
+# Conteo de Días Cumplidos vs No Cumplidos
+dias_evaluados = df_calidad_f.copy()
+dias_evaluados['PRIMERA_PCT'] = dias_evaluados['PRIMERA'] * 100
+dias_cumple = (dias_evaluados['PRIMERA_PCT'] >= meta_calidad).sum()
+dias_no_cumple = (dias_evaluados['PRIMERA_PCT'] < meta_calidad).sum()
 
-# Tarjetas KPI
-c1, c2, c3, c4 = st.columns(4)
-c1.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad de Primera</div><div class="kpi-value val-green">{calidad_dia:.1f}% <span style="font-size:12px; color:#7f8c8d;">(Día)</span></div><div class="kpi-meta">Acum. Mes: <b>{calidad_acumulada:.1f}%</b></div></div>', unsafe_allow_html=True)
-c2.markdown(f'<div class="kpi-card"><div class="kpi-title">Volumen Mts²</div><div class="kpi-value val-blue">{mts2_dia:,.0f} <span style="font-size:12px; color:#7f8c8d;">m² (Día)</span></div><div class="kpi-meta">Acum. Mes: <b>{total_m2_acum:,.0f} m²</b></div></div>', unsafe_allow_html=True)
-c3.markdown(f'<div class="kpi-card"><div class="kpi-title">Pallets Liberados</div><div class="kpi-value val-green">{pallets_dia:,.0f} <span style="font-size:12px; color:#7f8c8d;">(Día)</span></div><div class="kpi-meta">Acum. Mes: <b>{pallets_acum:,.0f}</b></div></div>', unsafe_allow_html=True)
-c4.markdown(f'<div class="kpi-card"><div class="kpi-title">Cumplimiento Tonos</div><div class="kpi-value val-green">{cumplimiento_tonos:.1f}%</div><div class="kpi-meta">Garantías Año: <b style="color:#e74c3c;">{total_garantias}</b></div></div>', unsafe_allow_html=True)
+# ---------------------------------------------------------
+# TARJETAS DE INDICADORES INDIVIDUALES (DOS DECIMALES + DÍAS META)
+# ---------------------------------------------------------
+k1, k2, k3, k4, k5, k6, k7, k8 = st.columns(8)
+
+with k1:
+    col_class = "val-green" if calidad_dia >= meta_calidad else "val-red"
+    st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Día</div><div class="kpi-value {col_class}">{calidad_dia:.2f}%</div></div>', unsafe_allow_html=True)
+with k2:
+    col_class_ac = "val-green" if calidad_acum >= meta_calidad else "val-red"
+    st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Acum</div><div class="kpi-value {col_class_ac}">{calidad_acum:.2f}%</div></div>', unsafe_allow_html=True)
+with k3:
+    st.markdown(f'<div class="kpi-card"><div class="kpi-title">Volumen Día</div><div class="kpi-value val-blue">{mts2_dia:,.2f}<span style="font-size:10px;"> m²</span></div></div>', unsafe_allow_html=True)
+with k4:
+    st.markdown(f'<div class="kpi-card"><div class="kpi-title">Volumen Acum</div><div class="kpi-value val-blue">{total_m2_acum:,.2f}<span style="font-size:10px;"> m²</span></div></div>', unsafe_allow_html=True)
+with k5:
+    st.markdown(f'<div class="kpi-card"><div class="kpi-title">Pallets Día</div><div class="kpi-value val-amber">{pallets_dia:,.2f}</div></div>', unsafe_allow_html=True)
+with k6:
+    st.markdown(f'<div class="kpi-card"><div class="kpi-title">Pallets Acum</div><div class="kpi-value val-amber">{pallets_acum:,.2f}</div></div>', unsafe_allow_html=True)
+with k7:
+    st.markdown(f'<div class="kpi-card"><div class="kpi-title">Días Cumple</div><div class="kpi-value val-green">{dias_cumple}</div></div>', unsafe_allow_html=True)
+with k8:
+    st.markdown(f'<div class="kpi-card"><div class="kpi-title">Días No Cumple</div><div class="kpi-value val-red">{dias_no_cumple}</div></div>', unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Rechazos
-st.markdown('<div class="section-title">📌 Principales Motivos de Rechazo</div>', unsafe_allow_html=True)
-r1, r2 = st.columns(2)
-r1.info(f"**Principal Rechazo del Día:** {rechazo_dia}")
-r2.warning(f"**Principal Rechazo Acumulado:** {rechazo_acum}")
+# ---------------------------------------------------------
+# SECCIÓN DE GRÁFICAS (TENDENCIA VS META Y RECHAZOS PALLETS)
+# ---------------------------------------------------------
+g1, g2 = st.columns([1, 1])
 
-st.markdown("<br>", unsafe_allow_html=True)
+with g1:
+    st.markdown('<div class="section-card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">📈 Tendencia Diaria de Calidad de Primera (%) vs Meta</div>', unsafe_allow_html=True)
+    
+    df_trend = df_calidad_f.sort_values('FECHA').copy()
+    df_trend['PRIMERA_PCT'] = df_trend['PRIMERA'] * 100
+    df_trend['CUMPLE_META'] = df_trend['PRIMERA_PCT'] >= meta_calidad
+    
+    fig_line = go.Figure()
 
-# Modelos
-st.markdown('<div class="section-title">🧪 Control de Modelos</div>', unsafe_allow_html=True)
+    # Línea de Meta de Referencia
+    fig_line.add_trace(go.Scatter(
+        x=df_trend['FECHA'],
+        y=[meta_calidad] * len(df_trend),
+        mode='lines',
+        name=f'Meta ({meta_calidad:.2f}%)',
+        line=dict(color='#ef4444', width=2, dash='dash')
+    ))
+
+    # Línea de Calidad Real
+    fig_line.add_trace(go.Scatter(
+        x=df_trend['FECHA'],
+        y=df_trend['PRIMERA_PCT'],
+        mode='lines+markers+text',
+        name='Calidad Real',
+        text=df_trend['PRIMERA_PCT'].map('{:.2f}%'.format),
+        textposition="top center",
+        line=dict(color='#2563eb', width=3),
+        marker=dict(
+            size=9,
+            color=np.where(df_trend['CUMPLE_META'], '#10b981', '#ef4444')
+        )
+    ))
+
+    fig_line.update_layout(
+        height=300,
+        margin=dict(l=10, r=10, t=25, b=10),
+        xaxis_title=None,
+        yaxis_title=None,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)'
+    )
+    
+    st.plotly_chart(fig_line, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with g2:
+    st.markdown('<div class="section-card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">🚨 Rechazos en Liberación de Pallets</div>', unsafe_allow_html=True)
+    
+    df_top_def = df_def_f.groupby('DEFECTO')['MTS2'].sum().reset_index()
+    df_top_def = df_top_def.sort_values('MTS2', ascending=True).tail(5)
+    
+    if not df_top_def.empty:
+        fig_bar = px.bar(
+            df_top_def, x='MTS2', y='DEFECTO', orientation='h',
+            text=df_top_def['MTS2'].map('{:,.2f} m²'.format)
+        )
+        fig_bar.update_traces(marker_color='#ef4444', textposition='outside')
+        fig_bar.update_layout(
+            height=300, margin=dict(l=10, r=10, t=25, b=10),
+            xaxis_title=None, yaxis_title=None,
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
+        )
+        st.plotly_chart(fig_bar, use_container_width=True)
+    else:
+        st.info("No se registraron rechazos en la liberación de pallets para el período seleccionado.")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ---------------------------------------------------------
+# TABLAS DE CONTROL DE MODELOS
+# ---------------------------------------------------------
+st.markdown('<div class="section-card">', unsafe_allow_html=True)
+st.markdown('<div class="section-title">🧪 Control de Modelos Cerámicos</div>', unsafe_allow_html=True)
 m1, m2 = st.columns(2)
 
 with m1:
-    st.markdown("##### LISTA DE MODELOS EN PRUEBA")
+    st.markdown("##### MODELOS EN PRUEBA")
     st.dataframe(df_pruebas, use_container_width=True, hide_index=True)
 
 with m2:
-    st.markdown("##### LISTA DE MODELOS AUTORIZADOS")
+    st.markdown("##### MODELOS AUTORIZADOS")
     st.dataframe(df_autorizados, use_container_width=True, hide_index=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
