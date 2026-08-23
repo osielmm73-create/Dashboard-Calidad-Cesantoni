@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
 import io
 
 st.set_page_config(
@@ -75,7 +76,6 @@ if 'logged_in' not in st.session_state:
 if 'excel_bytes' not in st.session_state:
     st.session_state['excel_bytes'] = None
 
-# Buscador flexible de columnas individuales en todo el DataFrame crudo
 def extract_column_by_keyword(df_raw, keywords):
     for r in range(len(df_raw)):
         for c in range(len(df_raw.columns)):
@@ -92,13 +92,13 @@ def parse_excel_data(file_bytes):
     
     df_raw = pd.read_excel(io.BytesIO(file_bytes), sheet_name=selected_sheet, header=None)
     
-    # 1. Tabla Principal de Calidad y Metros
+    # 1. Calidad y Metros
     fechas = extract_column_by_keyword(df_raw, ['FECHA'])
     primera = extract_column_by_keyword(df_raw, ['PRIMERA'])
     segunda = extract_column_by_keyword(df_raw, ['SEGUNDA'])
     tercera = extract_column_by_keyword(df_raw, ['TERCERA'])
     quinta = extract_column_by_keyword(df_raw, ['QUINTA'])
-    mts2 = extract_column_by_keyword(df_raw, ['MTS2', 'M2'])
+    mts2 = extract_column_by_keyword(df_raw, ['MTS2'])
     calidad_meta = extract_column_by_keyword(df_raw, ['CALIDAD META'])
     
     df_calidad = pd.DataFrame()
@@ -136,18 +136,20 @@ def parse_excel_data(file_bytes):
         df_pallets = df_pallets.dropna(subset=['FECHA'])
         df_pallets['MES'] = df_pallets['FECHA'].dt.strftime('%B %Y').str.capitalize()
 
-    # 3. Garantías
+    # 3. Garantías (Lectura estricta de la columna CANTIDAD de garantías)
     g_cant = extract_column_by_keyword(df_raw, ['CANTIDAD'])
     df_garantias = pd.DataFrame()
     if not g_cant.empty:
-        df_garantias['CANTIDAD'] = pd.to_numeric(g_cant, errors='coerce').fillna(0)
+        # Filtramos solo valores numéricos válidos y cortamos antes de basura vacía
+        vals = pd.to_numeric(g_cant, errors='coerce').dropna()
+        df_garantias['CANTIDAD'] = vals[vals > 0]
 
-    # 4. Defectos
+    # 4. Defectos que influyen en calidad
     d_fecha = extract_column_by_keyword(df_raw, ['FECHA'])
     d_def = extract_column_by_keyword(df_raw, ['DEFECTO'])
-    d_mts2 = extract_column_by_keyword(df_raw, ['MTS2', 'M2'])
+    d_mts2 = extract_column_by_keyword(df_raw, ['MTS2'])
     d_resp = extract_column_by_keyword(df_raw, ['RESPONSABLE'])
-    d_pct = extract_column_by_keyword(df_raw, ['PORCENTAJE DE DEFECTO DEL ÁREA', 'PORCENTAJE'])
+    d_pct = extract_column_by_keyword(df_raw, ['PORCENTAJE DE DEFECTO DEL ÁREA'])
     
     df_def = pd.DataFrame()
     if not d_def.empty:
@@ -159,24 +161,18 @@ def parse_excel_data(file_bytes):
         df_def['PORCENTAJE'] = pd.to_numeric(d_pct.iloc[:max_len], errors='coerce').fillna(0) if not d_pct.empty else 0
         
         df_def = df_def.dropna(subset=['DEFECTO'])
-        df_def = df_def[df_def['DEFECTO'] != 'nan']
+        df_def = df_def[(df_def['DEFECTO'] != 'nan') & (df_def['DEFECTO'] != '')]
         df_def['MES'] = df_def['FECHA'].dt.strftime('%B %Y').str.capitalize()
 
-    # 5. Cumplimiento a Tono (Nuevos encabezados)
+    # 5. Cumplimiento a Tono
     t_fecha = extract_column_by_keyword(df_raw, ['FECHA'])
-    t_p1 = extract_column_by_keyword(df_raw, ['%CUMPLIMIENTO A TONO P1'])
-    t_p3 = extract_column_by_keyword(df_raw, ['%CUMPLIMIENTO A TONO P3'])
     t_acum = extract_column_by_keyword(df_raw, ['%CUMPLIMIENTO A TONO ACUMULADO'])
     
     df_tono = pd.DataFrame()
-    if not t_p1.empty or not t_acum.empty:
-        max_len = max(len(t_p1), len(t_acum), 1)
+    if not t_acum.empty:
+        max_len = len(t_acum)
         df_tono['FECHA'] = pd.to_datetime(t_fecha.iloc[:max_len], errors='coerce').dt.floor('D') if not t_fecha.empty else pd.NaT
-        df_tono['P1'] = pd.to_numeric(t_p1.iloc[:max_len], errors='coerce').fillna(0) if not t_p1.empty else 0
-        df_tono['P3'] = pd.to_numeric(t_p3.iloc[:max_len], errors='coerce').fillna(0) if not t_p3.empty else 0
-        df_tono['ACUMULADO'] = pd.to_numeric(t_acum.iloc[:max_len], errors='coerce').fillna(0) if not t_acum.empty else 0
-        if df_tono['P1'].max() <= 1.0 and df_tono['P1'].max() > 0:
-            df_tono['P1'] *= 100
+        df_tono['ACUMULADO'] = pd.to_numeric(t_acum.iloc[:max_len], errors='coerce').fillna(0)
         if df_tono['ACUMULADO'].max() <= 1.0 and df_tono['ACUMULADO'].max() > 0:
             df_tono['ACUMULADO'] *= 100
         df_tono['MES'] = df_tono['FECHA'].dt.strftime('%B %Y').str.capitalize()
@@ -238,10 +234,8 @@ calidad_acum = df_calidad_f['PRIMERA'].mean() if not df_calidad_f.empty else 0.0
 mts2_def_dia = df_def_ultimo['MTS2'].sum() if not df_def_ultimo.empty else 0.0
 mts2_def_acum = df_def_f['MTS2'].sum() if not df_def_f.empty else 0.0
 
-# Cumplimiento a Tono (Tomamos el acumulado o promedio del último día)
 cumplimiento_tono = df_tono_ultimo['ACUMULADO'].values[0] if not df_tono_ultimo.empty and df_tono_ultimo['ACUMULADO'].values[0] > 0 else (df_tono_f['ACUMULADO'].mean() if not df_tono_f.empty else 0.0)
 
-# Pallets Totales (1ra + 2da + 3ra)
 pallets_total_dia = int(df_pallets_ultimo[['PALLET DE 1RA', 'PALLET DE 2DA', 'PALLET DE 3RA']].sum().sum()) if not df_pallets_ultimo.empty else 0
 pallets_total_acum = int(df_pallets_f[['PALLET DE 1RA', 'PALLET DE 2DA', 'PALLET DE 3RA']].sum().sum()) if not df_pallets_f.empty else 0
 
@@ -286,7 +280,20 @@ p5.markdown(f'<div class="kpi-card"><div class="kpi-title">Garantías Total</div
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Gráficas
+# Gráfica 1: Comportamiento Diario de Calidad
+st.markdown('<div class="section-card">', unsafe_allow_html=True)
+st.markdown('<div class="section-title">📈 Comportamiento Diario de Calidad (Primera %) vs Meta</div>', unsafe_allow_html=True)
+if not df_calidad_f.empty:
+    fig_line = go.Figure()
+    fig_line.add_trace(go.Scatter(x=df_calidad_f['FECHA'], y=df_calidad_f['PRIMERA'], mode='lines+markers', name='Calidad 1ra (%)', line=dict(color='#10b981', width=3)))
+    fig_line.add_trace(go.Scatter(x=df_calidad_f['FECHA'], y=df_calidad_f['CALIDAD META'], mode='lines', name='Meta', line=dict(color='#ef4444', width=2, dash='dash')))
+    fig_line.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), xaxis_title=None, yaxis_title=None, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+    st.plotly_chart(fig_line, use_container_width=True)
+else:
+    st.info("Sin datos de calidad para mostrar.")
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Gráficas de Defectos y Responsables
 g1, g2 = st.columns(2)
 
 with g1:
@@ -306,7 +313,7 @@ with g2:
     st.markdown('<div class="section-card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">👤 % Afectación por Responsable del Defecto</div>', unsafe_allow_html=True)
     if not df_def_f.empty and 'RESPONSABLE' in df_def_f.columns:
-        df_resp = df_def_f.groupby('RESPONSABLE')['PORCENTAJE'].mean().reset_index()
+        df_resp = df_def_f.groupby('RESPONSABLE')['PORCENTAJE'].sum().reset_index()
         fig_pie = px.pie(df_resp, values='PORCENTAJE', names='RESPONSABLE', hole=0.4, color_discrete_sequence=px.colors.qualitative.Set2)
         fig_pie.update_traces(textinfo='percent+label')
         fig_pie.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), showlegend=False)
