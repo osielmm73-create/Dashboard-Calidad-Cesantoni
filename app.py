@@ -99,7 +99,6 @@ def parse_excel_data(file_bytes):
     tercera = extract_column_by_keyword(df_raw, ['TERCERA'])
     quinta = extract_column_by_keyword(df_raw, ['QUINTA'])
     mts2 = extract_column_by_keyword(df_raw, ['MTS2'])
-    calidad_meta = extract_column_by_keyword(df_raw, ['CALIDAD META'])
     
     df_calidad = pd.DataFrame()
     if not fechas.empty:
@@ -110,7 +109,6 @@ def parse_excel_data(file_bytes):
         df_calidad['TERCERA'] = pd.to_numeric(tercera.iloc[:max_len], errors='coerce').fillna(0) if not tercera.empty else 0
         df_calidad['QUINTA'] = pd.to_numeric(quinta.iloc[:max_len], errors='coerce').fillna(0) if not quinta.empty else 0
         df_calidad['MTS2'] = pd.to_numeric(mts2.iloc[:max_len], errors='coerce').fillna(0) if not mts2.empty else 0
-        df_calidad['CALIDAD META'] = pd.to_numeric(calidad_meta.iloc[:max_len], errors='coerce').fillna(94.5) if not calidad_meta.empty else 94.5
         
         df_calidad = df_calidad.dropna(subset=['FECHA'])
         if df_calidad['PRIMERA'].max() <= 1.0 and df_calidad['PRIMERA'].max() > 0:
@@ -136,20 +134,31 @@ def parse_excel_data(file_bytes):
         df_pallets = df_pallets.dropna(subset=['FECHA'])
         df_pallets['MES'] = df_pallets['FECHA'].dt.strftime('%B %Y').str.capitalize()
 
-    # 3. Garantías (Lectura estricta de la columna CANTIDAD de garantías)
-    g_cant = extract_column_by_keyword(df_raw, ['CANTIDAD'])
+    # 3. Garantías (Búsqueda exacta para evitar duplicidad de conteos)
+    g_cant = pd.Series(dtype=object)
+    for r in range(len(df_raw)):
+        for c in range(len(df_raw.columns)):
+            val = str(df_raw.iloc[r, c]).strip().upper()
+            if val == 'GARANTIAS' or val == 'GARANTÍA' or val == 'GARANTIAS TOTAL':
+                g_cant = pd.Series(df_raw.iloc[r+1:, c].values)
+                break
+        if not g_cant.empty:
+            break
+    if g_cant.empty:
+        g_cant = extract_column_by_keyword(df_raw, ['CANTIDAD'])
+
     df_garantias = pd.DataFrame()
     if not g_cant.empty:
-        # Filtramos solo valores numéricos válidos y cortamos antes de basura vacía
         vals = pd.to_numeric(g_cant, errors='coerce').dropna()
-        df_garantias['CANTIDAD'] = vals[vals > 0]
+        # Filtramos para que tome únicamente los valores unitarios reales de garantías de la tabla origen
+        df_garantias['CANTIDAD'] = vals[(vals > 0) & (vals < 100)]
 
-    # 4. Defectos que influyen en calidad
+    # 4. Defectos que influyen en calidad (Mapeo robusto de celdas)
     d_fecha = extract_column_by_keyword(df_raw, ['FECHA'])
-    d_def = extract_column_by_keyword(df_raw, ['DEFECTO'])
-    d_mts2 = extract_column_by_keyword(df_raw, ['MTS2'])
+    d_def = extract_column_by_keyword(df_raw, ['PRINCIPALES DEFECTOS', 'DEFECTO'])
+    d_mts2 = extract_column_by_keyword(df_raw, ['MTS2', 'METROS'])
     d_resp = extract_column_by_keyword(df_raw, ['RESPONSABLE'])
-    d_pct = extract_column_by_keyword(df_raw, ['PORCENTAJE DE DEFECTO DEL ÁREA'])
+    d_pct = extract_column_by_keyword(df_raw, ['PORCENTAJE DE DEFECTO DEL ÁREA', '% AFECTACIÓN'])
     
     df_def = pd.DataFrame()
     if not d_def.empty:
@@ -161,7 +170,7 @@ def parse_excel_data(file_bytes):
         df_def['PORCENTAJE'] = pd.to_numeric(d_pct.iloc[:max_len], errors='coerce').fillna(0) if not d_pct.empty else 0
         
         df_def = df_def.dropna(subset=['DEFECTO'])
-        df_def = df_def[(df_def['DEFECTO'] != 'nan') & (df_def['DEFECTO'] != '')]
+        df_def = df_def[(df_def['DEFECTO'] != 'nan') & (df_def['DEFECTO'] != '') & (df_def['DEFECTO'] != 'None')]
         df_def['MES'] = df_def['FECHA'].dt.strftime('%B %Y').str.capitalize()
 
     # 5. Cumplimiento a Tono
@@ -280,14 +289,45 @@ p5.markdown(f'<div class="kpi-card"><div class="kpi-title">Garantías Total</div
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Gráfica 1: Comportamiento Diario de Calidad
+# Gráfica 1: Comportamiento Diario de Calidad con Etiquetas y Línea de Meta Fija
 st.markdown('<div class="section-card">', unsafe_allow_html=True)
 st.markdown('<div class="section-title">📈 Comportamiento Diario de Calidad (Primera %) vs Meta</div>', unsafe_allow_html=True)
 if not df_calidad_f.empty:
     fig_line = go.Figure()
-    fig_line.add_trace(go.Scatter(x=df_calidad_f['FECHA'], y=df_calidad_f['PRIMERA'], mode='lines+markers', name='Calidad 1ra (%)', line=dict(color='#10b981', width=3)))
-    fig_line.add_trace(go.Scatter(x=df_calidad_f['FECHA'], y=df_calidad_f['CALIDAD META'], mode='lines', name='Meta', line=dict(color='#ef4444', width=2, dash='dash')))
-    fig_line.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), xaxis_title=None, yaxis_title=None, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+    # Línea de Calidad Diaria con etiquetas de texto en cada punto
+    fig_line.add_trace(go.Scatter(
+        x=df_calidad_f['FECHA'], 
+        y=df_calidad_f['PRIMERA'], 
+        mode='lines+markers+text', 
+        name='Calidad 1ra (%)', 
+        text=df_calidad_f['PRIMERA'].round(2).astype(str) + '%',
+        textposition="top center",
+        line=dict(color='#10b981', width=3)
+    ))
+    # Línea horizontal fija para la Meta de Calidad exacta
+    fig_line.add_shape(
+        type="line",
+        x0=df_calidad_f['FECHA'].min(),
+        x1=df_calidad_f['FECHA'].max(),
+        y0=meta_calidad,
+        y1=meta_calidad,
+        line=dict(color="#ef4444", width=2, dash="dash")
+    )
+    fig_line.add_trace(go.Scatter(
+        x=[df_calidad_f['FECHA'].iloc[0]], 
+        y=[meta_calidad], 
+        mode='lines', 
+        name=f'Meta ({meta_calidad}%)', 
+        line=dict(color='#ef4444', width=2, dash='dash')
+    ))
+    
+    fig_line.update_layout(
+        height=320, 
+        margin=dict(l=10, r=10, t=25, b=10), 
+        xaxis_title=None, 
+        yaxis_title=None, 
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
     st.plotly_chart(fig_line, use_container_width=True)
 else:
     st.info("Sin datos de calidad para mostrar.")
@@ -300,13 +340,17 @@ with g1:
     st.markdown('<div class="section-card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">🚨 Principales Defectos Afectados (m²)</div>', unsafe_allow_html=True)
     if not df_def_f.empty and 'DEFECTO' in df_def_f.columns:
-        df_top_def = df_def_f.groupby('DEFECTO')['MTS2'].sum().reset_index().sort_values('MTS2', ascending=True).tail(5)
-        fig_bar = px.bar(df_top_def, x='MTS2', y='DEFECTO', orientation='h', text_auto='.2f')
-        fig_bar.update_traces(marker_color='#ef4444')
-        fig_bar.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), xaxis_title=None, yaxis_title=None)
-        st.plotly_chart(fig_bar, use_container_width=True)
+        df_top_def = df_def_f.groupby('DEFECTO')['MTS2'].sum().reset_index()
+        df_top_def = df_top_def[df_top_def['MTS2'] > 0].sort_values('MTS2', ascending=True).tail(5)
+        if not df_top_def.empty:
+            fig_bar = px.bar(df_top_def, x='MTS2', y='DEFECTO', orientation='h', text_auto='.2f')
+            fig_bar.update_traces(marker_color='#ef4444')
+            fig_bar.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), xaxis_title=None, yaxis_title=None)
+            st.plotly_chart(fig_bar, use_container_width=True)
+        else:
+            st.info("No hay metros cuadrados de defectos registrados en este filtro.")
     else:
-        st.info("Sin registros de defectos.")
+        st.info("Sin registros de defectos estructurados.")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with g2:
@@ -314,10 +358,14 @@ with g2:
     st.markdown('<div class="section-title">👤 % Afectación por Responsable del Defecto</div>', unsafe_allow_html=True)
     if not df_def_f.empty and 'RESPONSABLE' in df_def_f.columns:
         df_resp = df_def_f.groupby('RESPONSABLE')['PORCENTAJE'].sum().reset_index()
-        fig_pie = px.pie(df_resp, values='PORCENTAJE', names='RESPONSABLE', hole=0.4, color_discrete_sequence=px.colors.qualitative.Set2)
-        fig_pie.update_traces(textinfo='percent+label')
-        fig_pie.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), showlegend=False)
-        st.plotly_chart(fig_pie, use_container_width=True)
+        df_resp = df_resp[df_resp['PORCENTAJE'] > 0]
+        if not df_resp.empty:
+            fig_pie = px.pie(df_resp, values='PORCENTAJE', names='RESPONSABLE', hole=0.4, color_discrete_sequence=px.colors.qualitative.Set2)
+            fig_pie.update_traces(textinfo='percent+label')
+            fig_pie.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), showlegend=False)
+            st.plotly_chart(fig_pie, use_container_width=True)
+        else:
+            st.info("Sin porcentajes válidos por área.")
     else:
-        st.info("Sin datos de responsables o porcentajes.")
+        st.info("Sin datos de responsables.")
     st.markdown('</div>', unsafe_allow_html=True)
