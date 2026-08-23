@@ -80,6 +80,7 @@ st.markdown("""
 
 ADMIN_PASSWORD = "admin123"
 
+# Inicialización de Estados
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
@@ -87,10 +88,9 @@ if 'excel_bytes' not in st.session_state:
     st.session_state['excel_bytes'] = None
 
 # ---------------------------------------------------------
-# FUNCIÓN PARA CARGAR DATOS EN MEMORIA
+# FUNCIÓN PARA CARGAR DATOS
 # ---------------------------------------------------------
-@st.cache_data
-def load_excel_data(file_bytes):
+def parse_excel_data(file_bytes):
     xl = pd.ExcelFile(io.BytesIO(file_bytes))
     sheet_names = xl.sheet_names
     
@@ -126,7 +126,7 @@ def load_excel_data(file_bytes):
     df_autorizados.columns = ['MODELO', 'HORNO']
     df_autorizados = df_autorizados.dropna(subset=['MODELO'])
 
-    # 4. Defectos y Rechazos en Liberación de Pallet
+    # 4. Defectos y Rechazos
     df_def = df_raw.iloc[2:, 17:25].copy()
     df_def.columns = ['DIA', 'MODELO', 'FORMATO', 'HORNO', 'DEFECTO', 'MTS2', 'RESPONSABLE', 'PCT_AREA']
     df_def['DIA'] = pd.to_datetime(df_def['DIA'], errors='coerce')
@@ -155,18 +155,16 @@ with st.sidebar:
                 st.error("Contraseña incorrecta")
     else:
         st.success("Modo Admin Activo")
-        uploaded_file = st.file_uploader("Subir / Actualizar Excel", type=["xlsx", "xls"])
+        uploaded_file = st.file_uploader("Subir / Actualizar Excel", type=["xlsx", "xls"], key="uploader")
         
+        # Guardar en session_state inmediatamente cuando se detecte el archivo
         if uploaded_file is not None:
             st.session_state['excel_bytes'] = uploaded_file.getvalue()
-            st.cache_data.clear()
-            st.success("¡Archivo guardado en memoria!")
-            st.rerun()
+            st.success("¡Archivo cargado correctamente!")
             
         if st.session_state['excel_bytes'] is not None:
             if st.button("🗑️ Eliminar Reporte Actual"):
                 st.session_state['excel_bytes'] = None
-                st.cache_data.clear()
                 st.rerun()
 
         if st.button("Cerrar Sesión"):
@@ -174,13 +172,18 @@ with st.sidebar:
             st.rerun()
 
 # ---------------------------------------------------------
-# CONTROL PANTALLA EN BLANCO
+# VERIFICACIÓN Y RENDERIZADO DEL DASHBOARD
 # ---------------------------------------------------------
 if st.session_state['excel_bytes'] is None:
     st.warning("⚠️ Sin datos para mostrar. Inicia sesión como Administrador en la barra lateral para subir el archivo de reporte Excel.")
     st.stop()
 
-df_calidad, df_garantias, df_pruebas, df_autorizados, df_def = load_excel_data(st.session_state['excel_bytes'])
+# Cargar y procesar datos desde la memoria activa
+try:
+    df_calidad, df_garantias, df_pruebas, df_autorizados, df_def = parse_excel_data(st.session_state['excel_bytes'])
+except Exception as e:
+    st.error(f"Error al procesar el archivo Excel: {e}")
+    st.stop()
 
 # Filtros en Barra Lateral
 st.sidebar.divider()
@@ -212,9 +215,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ---------------------------------------------------------
 # CÁLCULOS
-# ---------------------------------------------------------
 ultimo_dia = df_calidad_f['FECHA'].max()
 df_ultimo_dia = df_calidad_f[df_calidad_f['FECHA'] == ultimo_dia]
 df_def_ultimo_dia = df_def_f[df_def_f['DIA'] == ultimo_dia]
@@ -227,15 +228,12 @@ mts2_dia = df_ultimo_dia['MTS2'].sum() if not df_ultimo_dia.empty else 0.0
 pallets_dia = df_ultimo_dia['PALLETS_LIB'].sum() if not df_ultimo_dia.empty else 0.0
 pallets_acum = df_calidad_f['PALLETS_LIB'].sum()
 
-# Conteo de Días Cumplidos vs No Cumplidos
 dias_evaluados = df_calidad_f.copy()
 dias_evaluados['PRIMERA_PCT'] = dias_evaluados['PRIMERA'] * 100
 dias_cumple = (dias_evaluados['PRIMERA_PCT'] >= meta_calidad).sum()
 dias_no_cumple = (dias_evaluados['PRIMERA_PCT'] < meta_calidad).sum()
 
-# ---------------------------------------------------------
-# TARJETAS DE INDICADORES INDIVIDUALES
-# ---------------------------------------------------------
+# TARJETAS KPI
 k1, k2, k3, k4, k5, k6, k7, k8 = st.columns(8)
 
 with k1:
@@ -259,9 +257,7 @@ with k8:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ---------------------------------------------------------
-# SECCIÓN DE GRÁFICAS
-# ---------------------------------------------------------
+# GRÁFICAS
 g1, g2 = st.columns([1, 1])
 
 with g1:
@@ -274,7 +270,6 @@ with g1:
     
     fig_line = go.Figure()
 
-    # Línea de Meta de Referencia
     fig_line.add_trace(go.Scatter(
         x=df_trend['FECHA'],
         y=[meta_calidad] * len(df_trend),
@@ -283,7 +278,6 @@ with g1:
         line=dict(color='#ef4444', width=2, dash='dash')
     ))
 
-    # Línea de Calidad Real
     fig_line.add_trace(go.Scatter(
         x=df_trend['FECHA'],
         y=df_trend['PRIMERA_PCT'],
@@ -334,9 +328,7 @@ with g2:
         st.info("No se registraron rechazos en la liberación de pallets para el período seleccionado.")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ---------------------------------------------------------
-# TABLAS DE CONTROL DE MODELOS
-# ---------------------------------------------------------
+# TABLAS DE CONTROL
 st.markdown('<div class="section-card">', unsafe_allow_html=True)
 st.markdown('<div class="section-title">🧪 Control de Modelos Cerámicos</div>', unsafe_allow_html=True)
 m1, m2 = st.columns(2)
