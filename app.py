@@ -82,7 +82,6 @@ def load_excel_data(file_source):
     df_raw = pd.read_excel(file_source, sheet_name=selected_sheet, header=None)
     
     # 1. Calidades, Mts2 y Liberación de Pallets por Día (Cols A:G)
-    # Asumiendo estructura de datos: Col A: Fecha, Col B: % Primera, Col C: Mts2, Col D: Pallets Liberados
     df_calidad = df_raw.iloc[2:, 0:7].copy()
     df_calidad.columns = ['FECHA', 'PRIMERA', 'SEGUNDA', 'TERCERA', 'QUINTA', 'MTS2', 'PALLETS_LIB']
     df_calidad['FECHA'] = pd.to_datetime(df_calidad['FECHA'], errors='coerce')
@@ -117,23 +116,17 @@ def load_excel_data(file_source):
     df_def['MTS2'] = pd.to_numeric(df_def['MTS2'], errors='coerce').fillna(0)
     df_def['MES'] = df_def['DIA'].dt.strftime('%B %Y').str.capitalize()
 
-    # 6. Cumplimiento a Tonos (Extracción directa o celda específica)
-    # Por defecto busca la celda especificada o aplica promedio
-    cumplimiento_tonos = 98.2  # Se actualiza dinámicamente según celda requerida
+    # 6. Cumplimiento a Tonos
+    cumplimiento_tonos = 98.2
 
     return df_calidad, df_garantias, df_pruebas, df_autorizados, df_def, cumplimiento_tonos
 
-# Intentar cargar desde archivo local guardado
-target_file = None
-if os.path.exists("REPORTE_ACTUAL.xlsx"):
-    target_file = "REPORTE_ACTUAL.xlsx"
-elif os.path.exists("REPORTE P1 Y P3 AGOSTO 2026.xlsx"):
-    target_file = "REPORTE P1 Y P3 AGOSTO 2026.xlsx"
+# Verificar únicamente si existe un archivo previamente cargado por el administrador
+target_file = "REPORTE_ACTUAL.xlsx" if os.path.exists("REPORTE_ACTUAL.xlsx") else None
 
-# Barra Lateral (Solo Acceso Admin y Filtro de Fecha)
+# Barra Lateral
 with st.sidebar:
     st.markdown("### 🟢 SISTEMA DE CALIDAD")
-    st.caption("Panel Único de Control")
     st.divider()
     
     st.subheader("🔑 Administrador")
@@ -159,13 +152,15 @@ with st.sidebar:
             st.session_state['logged_in'] = False
             st.rerun()
 
-if target_file:
-    df_calidad, df_garantias, df_pruebas, df_autorizados, df_def, cumplimiento_tonos = load_excel_data(target_file)
-else:
-    st.error("⚠️ No se encontró el archivo de Excel en el servidor. Carga el reporte en la barra lateral.")
+# SI NO HAY ARCHIVO CADO EN EL SERVIDOR: MOSTRAR PANTALLA EN BLANCO
+if not target_file:
+    st.info("ℹ️ Esperando la carga del archivo de reporte. Inicia sesión como administrador en la barra lateral para subir el Excel.")
     st.stop()
 
-# Filtros laterales
+# Cargar los datos guardados en el servidor
+df_calidad, df_garantias, df_pruebas, df_autorizados, df_def, cumplimiento_tonos = load_excel_data(target_file)
+
+# Filtro lateral de Mes
 st.sidebar.divider()
 meses_opciones = ["Todos los Meses"] + list(df_calidad['MES'].unique())
 mes_seleccionado = st.sidebar.selectbox("🗓️ Filtrar Mes:", options=meses_opciones, index=0)
@@ -193,39 +188,24 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ---------------------------------------------------------
-# CÁLCULOS EXACTOS DE INDICADORES SOLICITADOS
-# ---------------------------------------------------------
-
-# Día más reciente registrado
+# CÁLCULOS
 ultimo_dia = df_calidad_f['FECHA'].max()
 df_ultimo_dia = df_calidad_f[df_calidad_f['FECHA'] == ultimo_dia]
 df_def_ultimo_dia = df_def_f[df_def_f['DIA'] == ultimo_dia]
 
-# 1. Calidad por día vs Calidad acumulada del mes
 calidad_dia = (df_ultimo_dia['PRIMERA'].mean() * 100) if not df_ultimo_dia.empty else 0
 total_m2_acum = df_calidad_f['MTS2'].sum()
 calidad_acumulada = ((df_calidad_f['PRIMERA'] * df_calidad_f['MTS2']).sum() / total_m2_acum * 100) if total_m2_acum > 0 else 0
 
-# 2. Mts2 por día vs Mts2 acumulados del mes
 mts2_dia = df_ultimo_dia['MTS2'].sum() if not df_ultimo_dia.empty else 0
-
-# 3. Liberación de Pallets por día vs Liberación acumulada
 pallets_dia = df_ultimo_dia['PALLETS_LIB'].sum() if not df_ultimo_dia.empty else 0
 pallets_acum = df_calidad_f['PALLETS_LIB'].sum()
-
-# 4. Garantías Totales
 total_garantias = int(df_garantias['CANTIDAD'].sum())
 
-# 5. Motivo de Rechazo (Día vs Acumulado)
 rechazo_dia = df_def_ultimo_dia.groupby('DEFECTO')['MTS2'].sum().idxmax() if not df_def_ultimo_dia.empty else "N/A"
 rechazo_acum = df_def_f.groupby('DEFECTO')['MTS2'].sum().idxmax() if not df_def_f.empty else "N/A"
 
-# ---------------------------------------------------------
-# RENDERIZADO DE INTERFAZ (ÚNICA PESTAÑA)
-# ---------------------------------------------------------
-
-# BANNER DE KPIS PRINCIPALES
+# RENDERIZADO
 c1, c2, c3, c4 = st.columns(4)
 c1.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad de Primera</div><div class="kpi-value val-green">{calidad_dia:.1f}% <span style="font-size:12px; color:#7f8c8d;">(Día)</span></div><div class="kpi-meta">Acum. Mes: <b>{calidad_acumulada:.1f}%</b></div></div>', unsafe_allow_html=True)
 c2.markdown(f'<div class="kpi-card"><div class="kpi-title">Volumen Mts²</div><div class="kpi-value val-blue">{mts2_dia:,.0f} <span style="font-size:12px; color:#7f8c8d;">m² (Día)</span></div><div class="kpi-meta">Acum. Mes: <b>{total_m2_acum:,.0f} m²</b></div></div>', unsafe_allow_html=True)
@@ -234,7 +214,6 @@ c4.markdown(f'<div class="kpi-card"><div class="kpi-title">Cumplimiento Tonos</d
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# SECCIÓN DE PRINCIPALES MOTIVOS DE RECHAZO
 st.markdown('<div class="section-title">📌 Principales Motivos de Rechazo</div>', unsafe_allow_html=True)
 r1, r2 = st.columns(2)
 r1.info(f"**Principal Rechazo del Día:** {rechazo_dia}")
@@ -242,7 +221,6 @@ r2.warning(f"**Principal Rechazo Acumulado:** {rechazo_acum}")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# TABLAS DE MODELOS EN PRUEBA Y AUTORIZADOS
 st.markdown('<div class="section-title">🧪 Control de Modelos</div>', unsafe_allow_html=True)
 m1, m2 = st.columns(2)
 
