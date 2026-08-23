@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-import os
+import io
 
 # Configuración de página
 st.set_page_config(
@@ -79,24 +79,26 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 ADMIN_PASSWORD = "admin123"
-FILE_PATH = "REPORTE_ACTUAL.xlsx"
 
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
+if 'excel_bytes' not in st.session_state:
+    st.session_state['excel_bytes'] = None
+
 # ---------------------------------------------------------
-# FUNCION PARA CARGAR DATOS
+# FUNCIÓN PARA CARGAR DATOS EN MEMORIA
 # ---------------------------------------------------------
 @st.cache_data
-def load_excel_data(file_source):
-    xl = pd.ExcelFile(file_source)
+def load_excel_data(file_bytes):
+    xl = pd.ExcelFile(io.BytesIO(file_bytes))
     sheet_names = xl.sheet_names
     
     selected_sheet = next((s for s in sheet_names if s.strip().upper() == "DASHBOARD"), None)
     if not selected_sheet:
         selected_sheet = next((s for s in sheet_names if "DASH" in s.strip().upper()), sheet_names[0])
 
-    df_raw = pd.read_excel(file_source, sheet_name=selected_sheet, header=None)
+    df_raw = pd.read_excel(io.BytesIO(file_bytes), sheet_name=selected_sheet, header=None)
     
     # 1. Calidades, Mts2 y Pallets
     df_calidad = df_raw.iloc[2:, 0:7].copy()
@@ -156,15 +158,14 @@ with st.sidebar:
         uploaded_file = st.file_uploader("Subir / Actualizar Excel", type=["xlsx", "xls"])
         
         if uploaded_file is not None:
-            with open(FILE_PATH, "wb") as f:
-                f.write(uploaded_file.getbuffer())
+            st.session_state['excel_bytes'] = uploaded_file.getvalue()
             st.cache_data.clear()
-            st.success("¡Archivo guardado!")
+            st.success("¡Archivo guardado en memoria!")
             st.rerun()
             
-        if os.path.exists(FILE_PATH):
+        if st.session_state['excel_bytes'] is not None:
             if st.button("🗑️ Eliminar Reporte Actual"):
-                os.remove(FILE_PATH)
+                st.session_state['excel_bytes'] = None
                 st.cache_data.clear()
                 st.rerun()
 
@@ -175,11 +176,11 @@ with st.sidebar:
 # ---------------------------------------------------------
 # CONTROL PANTALLA EN BLANCO
 # ---------------------------------------------------------
-if not os.path.exists(FILE_PATH):
+if st.session_state['excel_bytes'] is None:
     st.warning("⚠️ Sin datos para mostrar. Inicia sesión como Administrador en la barra lateral para subir el archivo de reporte Excel.")
     st.stop()
 
-df_calidad, df_garantias, df_pruebas, df_autorizados, df_def = load_excel_data(FILE_PATH)
+df_calidad, df_garantias, df_pruebas, df_autorizados, df_def = load_excel_data(st.session_state['excel_bytes'])
 
 # Filtros en Barra Lateral
 st.sidebar.divider()
@@ -233,7 +234,7 @@ dias_cumple = (dias_evaluados['PRIMERA_PCT'] >= meta_calidad).sum()
 dias_no_cumple = (dias_evaluados['PRIMERA_PCT'] < meta_calidad).sum()
 
 # ---------------------------------------------------------
-# TARJETAS DE INDICADORES INDIVIDUALES (DOS DECIMALES + DÍAS META)
+# TARJETAS DE INDICADORES INDIVIDUALES
 # ---------------------------------------------------------
 k1, k2, k3, k4, k5, k6, k7, k8 = st.columns(8)
 
@@ -259,7 +260,7 @@ with k8:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# SECCIÓN DE GRÁFICAS (TENDENCIA VS META Y RECHAZOS PALLETS)
+# SECCIÓN DE GRÁFICAS
 # ---------------------------------------------------------
 g1, g2 = st.columns([1, 1])
 
