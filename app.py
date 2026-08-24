@@ -102,7 +102,7 @@ st.markdown(
 )
 
 
-# 2. Función optimizada para leer las tablas de la hoja 'DASHBOARD'
+# 2. Función optimizada para leer todas las tablas de la hoja 'DASHBOARD'
 @st.cache_data
 def cargar_todas_las_tablas(path_archivo):
   # Tabla 1: Calidad y Metros (Cols A:G)
@@ -121,14 +121,12 @@ def cargar_todas_las_tablas(path_archivo):
           "CALIDAD_META",
       ],
   )
-  # Limpiar filas vacías o mal formateadas en la fecha
   df_t1["FECHA"] = pd.to_datetime(df_t1["FECHA"], errors="coerce")
   df_t1 = df_t1.dropna(subset=["FECHA"])
-
   for col in ["PRIMERA", "SEGUNDA", "TERCERA", "QUINTA", "MTS2_DIA", "CALIDAD_META"]:
     df_t1[col] = pd.to_numeric(df_t1[col], errors="coerce").fillna(0)
 
-  # Tabla 2: Garantías (Cols I:J) - Ordenadas estrictamente de Enero a Diciembre
+  # Tabla 2: Garantías (Cols I:J) - Ordenadas de Enero a Diciembre
   df_t2 = pd.read_excel(
       path_archivo,
       sheet_name="DASHBOARD",
@@ -171,7 +169,8 @@ def cargar_todas_las_tablas(path_archivo):
       usecols="L:M",
       skiprows=1,
       names=["MODELO_PRUEBA", "HORNO_PRUEBAS"],
-  ).dropna(how="all")
+  )
+  df_t3 = df_t3.dropna(subset=["MODELO_PRUEBA"])
 
   # Tabla 4: Modelos autorizados (Cols O:P)
   df_t4 = pd.read_excel(
@@ -180,9 +179,10 @@ def cargar_todas_las_tablas(path_archivo):
       usecols="O:P",
       skiprows=1,
       names=["MODELOS_AUTORIZADOS", "HORNO_AUTORIZADOS"],
-  ).dropna(how="all")
+  )
+  df_t4 = df_t4.dropna(subset=["MODELOS_AUTORIZADOS"])
 
-  # Tabla 5: Defectos (Cols R:Y)
+  # Tabla 5: Defectos (Cols R:Y) - Robustecida para evitar que se oculte por filas vacías intermedias
   df_t5 = pd.read_excel(
       path_archivo,
       sheet_name="DASHBOARD",
@@ -198,16 +198,28 @@ def cargar_todas_las_tablas(path_archivo):
           "RESPONSABLE_DEFECTO",
           "PORCENTAJE_DEFECTO",
       ],
-  ).dropna(how="all")
+  )
+  df_t5["FECHA_DEFECTO"] = pd.to_datetime(df_t5["FECHA_DEFECTO"], errors="coerce")
+  df_t5 = df_t5.dropna(subset=["FECHA_DEFECTO", "DEFECTO"], how="any")
+  df_t5["MTS2_DEFECTO"] = pd.to_numeric(
+      df_t5["MTS2_DEFECTO"], errors="coerce"
+  ).fillna(0)
+  df_t5["PORCENTAJE_DEFECTO"] = pd.to_numeric(
+      df_t5["PORCENTAJE_DEFECTO"], errors="coerce"
+  ).fillna(0)
 
-  # Tabla 6: Cumplimiento a tonos (Cols AA:AD)
+  # Tabla 6: Cumplimiento a tonos (Cols AA:AD) - Robustecida
   df_t6 = pd.read_excel(
       path_archivo,
       sheet_name="DASHBOARD",
       usecols="AA:AD",
       skiprows=1,
       names=["FECHA_TONO", "TONO_P1", "TONO_P3", "TONO_ACUMULADO"],
-  ).dropna(how="all")
+  )
+  df_t6["FECHA_TONO"] = pd.to_datetime(df_t6["FECHA_TONO"], errors="coerce")
+  df_t6 = df_t6.dropna(subset=["FECHA_TONO"])
+  for col in ["TONO_P1", "TONO_P3", "TONO_ACUMULADO"]:
+    df_t6[col] = pd.to_numeric(df_t6[col], errors="coerce").fillna(0)
 
   # Tabla 7: Liberación de pallet (Cols AF:AK)
   df_t7 = pd.read_excel(
@@ -223,7 +235,8 @@ def cargar_todas_las_tablas(path_archivo):
           "PALLET_RECHAZADO",
           "PRINCIPAL_RECHAZO",
       ],
-  ).dropna(how="all")
+  )
+  df_t7 = df_t7.dropna(subset=["PALLET_FECHA"])
 
   return df_t1, df_t2, df_t3, df_t4, df_t5, df_t6, df_t7
 
@@ -277,7 +290,6 @@ if archivo_cargado:
     with col_izq:
       st.subheader("📈 Calidad Diaria vs Calidad Meta")
       if not t1.empty and "FECHA" in t1.columns:
-        # Usamos Plotly para permitir etiquetas de datos claras
         fig_calidad = px.line(
             t1,
             x="FECHA",
@@ -301,7 +313,6 @@ if archivo_cargado:
     with col_der:
       st.subheader("📦 Garantías por Mes")
       if not t2.empty and "MES_GARANTIAS" in t2.columns:
-        # Gráfica de barras con Plotly para asegurar etiquetas de datos y orden exacto
         fig_garantias = px.bar(
             t2,
             x="MES_GARANTIAS",
@@ -353,9 +364,22 @@ if archivo_cargado:
         st.info("Sin datos de metros diarios.")
 
     with col_b:
-      st.subheader("🎨 Cumplimiento a Tonos (Datos Actuales)")
+      st.subheader("🎨 Cumplimiento a Tonos")
       if not t6.empty:
-        st.dataframe(t6.tail(5), use_container_width=True)
+        # Gráfica de línea para ver P1 y P3 en cumplimiento a tonos
+        fig_tonos = px.line(
+            t6,
+            x="FECHA_TONO",
+            y=["TONO_P1", "TONO_P3", "TONO_ACUMULADO"],
+            markers=True,
+            labels={
+                "value": "Valor",
+                "variable": "Línea / Métrica",
+                "FECHA_TONO": "Fecha",
+            },
+        )
+        st.plotly_chart(fig_tonos, use_container_width=True)
+
         if "TONO_ACUMULADO" in t6.columns:
           ultimo_tono = t6["TONO_ACUMULADO"].iloc[-1]
           st.metric(label="Cumplimiento Tono Acumulado", value=f"{ultimo_tono}")
@@ -364,7 +388,16 @@ if archivo_cargado:
 
     st.divider()
 
-    # --- SECCIÓN 4: MODELOS EN PRUEBA Y AUTORIZADOS ---
+    # --- SECCIÓN 4: DEFECTOS (CON RESPONSABLES) ---
+    st.subheader("⚠️ Registro de Defectos y Responsables")
+    if not t5.empty:
+      st.dataframe(t5, use_container_width=True)
+    else:
+      st.info("Sin registros de defectos capturados.")
+
+    st.divider()
+
+    # --- SECCIÓN 5: MODELOS EN PRUEBA Y AUTORIZADOS ---
     col_c, col_d = st.columns(2)
     with col_c:
       st.subheader("🔬 Modelos en Prueba (Tabla L:M)")
@@ -388,6 +421,8 @@ if archivo_cargado:
       st.dataframe(t2)
       st.write("### 3. Defectos (R:Y)")
       st.dataframe(t5)
+      st.write("### 4. Cumplimiento a Tonos (AA:AD)")
+      st.dataframe(t6)
 
   except Exception as e:
     st.error(
