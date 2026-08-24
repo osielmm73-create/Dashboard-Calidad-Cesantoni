@@ -69,6 +69,8 @@ with st.sidebar:
   if st.button("🔄 Reiniciar / Limpiar Sesión"):
     if os.path.exists("temp_excel.xlsx"):
       os.remove("temp_excel.xlsx")
+    # Limpiamos también la caché de Streamlit
+    st.cache_data.clear()
     for key in list(st.session_state.keys()):
       del st.session_state[key]
     st.success("¡Datos reseteados con éxito!")
@@ -83,10 +85,12 @@ if st.session_state.get("autenticado", False):
       "Sube tu archivo Excel actualizado", type=["xlsx"]
   )
   if archivo_subido is not None:
+    # Guardamos el archivo subido y LIMPIAMOS LA CACHÉ para forzar actualización
     with open("temp_excel.xlsx", "wb") as f:
       f.write(archivo_subido.getbuffer())
+    st.cache_data.clear()  # <-- Esto borra la memoria vieja al subir uno nuevo
     archivo_cargado = "temp_excel.xlsx"
-    st.sidebar.success("¡Archivo cargado con éxito!")
+    st.sidebar.success("¡Archivo cargado y actualizado con éxito!")
 
 if not archivo_cargado:
   if os.path.exists("temp_excel.xlsx"):
@@ -100,7 +104,6 @@ if not archivo_cargado:
 col_logo, col_titulo = st.columns([1, 5])
 
 with col_logo:
-  # Carga directa del archivo exacto de tu repositorio de GitHub
   if os.path.exists("logo_cesantoni.png"):
     st.image("logo_cesantoni.png", use_container_width=True)
   else:
