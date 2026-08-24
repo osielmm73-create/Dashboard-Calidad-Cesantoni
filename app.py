@@ -5,7 +5,7 @@ import streamlit as st
 
 # 1. Configuración de la página en modo ancho (Panel Industrial)
 st.set_page_config(
-    page_title="Dashboard - Sistema de Calidad | Cesantoni",
+    page_title="CALIDAD P1&P3 | Cesantoni "Todos somos Calidad",
     page_icon="🏭",
     layout="wide",
 )
@@ -32,7 +32,7 @@ st.markdown(
 with st.sidebar:
   # Intentar mostrar el logotipo en la esquina superior izquierda
   if os.path.exists("logo.png"):
-    st.image("logo.png", use_container_width=True)
+    st.image("logo_cesantoni.png", use_container_width=True)
   else:
     st.markdown("### **CESANTONI**")
 
