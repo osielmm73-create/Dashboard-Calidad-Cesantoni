@@ -6,19 +6,18 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-# 1. Configuración de la página en modo ancho
+# Configuración de la página en modo ancho
 st.set_page_config(
     page_title="CALIDAD P1&P3 - Sistema de Calidad", page_icon="🏭", layout="wide"
 )
 
-# Estilos CSS mejorados para tarjetas tipo panel ejecutivo moderno
+# Estilos CSS mejorados para tarjetas y tablas ejecutivas
 st.markdown(
     """
     <style>
     .main {
         background-color: #f4f6f9;
     }
-    /* Contenedor personalizado para las tarjetas de indicadores */
     .metric-card {
         background-color: #ffffff;
         padding: 20px;
@@ -109,7 +108,7 @@ if not archivo_cargado:
     if xls_list:
       archivo_cargado = xls_list[0]
 
-# --- ENCABEZADO PRINCIPAL CON LOGOTIPO DIRECTO ---
+# --- ENCABEZADO PRINCIPAL ---
 col_logo, col_titulo = st.columns([1, 5])
 
 with col_logo:
@@ -241,7 +240,7 @@ def cargar_todas_las_tablas(path_archivo):
   df_t6["FECHA_TONO"] = pd.to_datetime(df_t6["FECHA_TONO"], errors="coerce")
   df_t6 = df_t6.dropna(subset=["FECHA_TONO"])
   for col in ["TONO_P1", "TONO_P3", "TONO_ACUMULADO"]:
-    df_t6[col] = pd.to_numeric(df_t6[col], errors="coerce").fillna(0)
+    df_t6[col] = pd.to_numeric(df_t6[col], errors="coerce")
 
   df_t7 = pd.read_excel(
       path_archivo,
@@ -364,7 +363,7 @@ if archivo_cargado:
 
     st.divider()
 
-    # --- SECCIÓN 2: GRÁFICAS PRINCIPALES ---
+    # --- SECCIÓN 2: GRÁFICAS PRINCIPALES (CALIDAD DIARIA MÁS GRANDE) ---
     col_izq, col_der = st.columns(2)
 
     with col_izq:
@@ -384,6 +383,7 @@ if archivo_cargado:
                 "variable": "Métrica",
                 "FECHA": "Fecha",
             },
+            height=420,  # Gráfica más grande y cómoda a la vista
         )
         fig_calidad.update_traces(
             textposition="top center",
@@ -406,6 +406,7 @@ if archivo_cargado:
                 "MES_GARANTIAS": "Mes",
                 "GARANTIAS": "Total Garantías",
             },
+            height=420,
         )
         fig_garantias.update_traces(
             texttemplate="%{text}",
@@ -462,9 +463,23 @@ if archivo_cargado:
     with col_b:
       st.subheader("🎨 Cumplimiento a Tonos (Valores Actuales)")
       if not t6.empty:
-        ultimo_p1 = t6["TONO_P1"].iloc[-1] * 100
-        ultimo_p3 = t6["TONO_P3"].iloc[-1] * 100
-        ultimo_acum = t6["TONO_ACUMULADO"].iloc[-1] * 100
+        # Filtramos filas donde los valores NO sean nulos para agarrar el último día con datos reales
+        t6_validos = t6.dropna(subset=["TONO_P1", "TONO_P3", "TONO_ACUMULADO"])
+
+        if not t6_validos.empty:
+          ultimo_p1 = t6_validos["TONO_P1"].iloc[-1] * 100
+          ultimo_p3 = t6_validos["TONO_P3"].iloc[-1] * 100
+          ultimo_acum = t6_validos["TONO_ACUMULADO"].iloc[-1] * 100
+          fecha_ultimo = (
+              t6_validos["FECHA_TONO"].iloc[-1].strftime("%d/%m/%Y")
+          )
+        else:
+          ultimo_p1, ultimo_p3, ultimo_acum, fecha_ultimo = (
+              0,
+              0,
+              0,
+              "Sin datos recientes",
+          )
 
         sub_c1, sub_c2, sub_c3 = st.columns(3)
         with sub_c1:
@@ -474,9 +489,14 @@ if archivo_cargado:
         with sub_c3:
           st.metric(label="Tono Acumulado", value=f"{ultimo_acum:.2f}%")
 
+        st.caption(f"📅 Última actualización de tonos: {fecha_ultimo}")
+
         st.markdown("<br>", unsafe_allow_html=True)
         with st.expander("Ver histórico de Cumplimiento a Tonos"):
           t6_display = t6.copy()
+          t6_display["FECHA_TONO"] = t6_display["FECHA_TONO"].dt.strftime(
+              "%d/%m/%Y"
+          )
           t6_display["TONO_P1"] = (t6_display["TONO_P1"] * 100).map(
               "{:.2f}%".format
           )
@@ -492,15 +512,38 @@ if archivo_cargado:
 
     st.divider()
 
-    # --- SECCIÓN 4: DEFECTOS ---
-    st.subheader("⚠️ Registro de Defectos y Responsables")
+    # --- SECCIÓN 4: DEFECTOS (Formato Estilo Tabla Ejecutiva) ---
+    st.subheader("⚠️ Registro de Defectos, Porcentajes y Responsables")
     if not t5.empty:
       t5_display = t5.copy()
+      t5_display["FECHA_DEFECTO"] = t5_display["FECHA_DEFECTO"].dt.strftime(
+          "%d/%m/%Y"
+      )
       if "PORCENTAJE_DEFECTO" in t5_display.columns:
         t5_display["PORCENTAJE_DEFECTO"] = (
             t5_display["PORCENTAJE_DEFECTO"] * 100
         ).map("{:.2f}%".format)
-      st.dataframe(t5_display, use_container_width=True)
+
+      # Seleccionamos y renombramos columnas clave para que luzca ordenado como referencia
+      columnas_mostrar = [
+          "FECHA_DEFECTO",
+          "DEFECTO",
+          "MODELO_DEFECTO",
+          "FORMATO_DEFECTO",
+          "HORNO_DEFECTO",
+          "MTS2_DEFECTO",
+          "RESPONSABLE_DEFECTO",
+          "PORCENTAJE_DEFECTO",
+      ]
+      columnas_existentes = [
+          c for c in columnas_mostrar if c in t5_display.columns
+      ]
+
+      st.dataframe(
+          t5_display[columnas_existentes],
+          use_container_width=True,
+          hide_index=True,
+      )
     else:
       st.info("Sin registros de defectos capturados.")
 
@@ -509,16 +552,16 @@ if archivo_cargado:
     # --- SECCIÓN 5: MODELOS EN PRUEBA Y AUTORIZADOS ---
     col_c, col_d = st.columns(2)
     with col_c:
-      st.subheader("🔬 Modelos en Prueba (Tabla L:M)")
+      st.subheader("🔬 Modelos en Prueba")
       if not t3.empty:
-        st.dataframe(t3, use_container_width=True)
+        st.dataframe(t3, use_container_width=True, hide_index=True)
       else:
         st.info("Sin modelos en prueba registrados.")
 
     with col_d:
-      st.subheader("✅ Modelos Autorizados (Tabla O:P)")
+      st.subheader("✅ Modelos Autorizados")
       if not t4.empty:
-        st.dataframe(t4, use_container_width=True)
+        st.dataframe(t4, use_container_width=True, hide_index=True)
       else:
         st.info("Sin modelos autorizados registrados.")
 
