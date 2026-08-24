@@ -10,7 +10,7 @@ st.set_page_config(
     page_title="CALIDAD P1&P3 - Sistema de Calidad", page_icon="🏭", layout="wide"
 )
 
-# Estilos CSS mejorados: Fondo claro profesional y legibilidad total en tarjetas
+# Estilos CSS mejorados: Fondo claro profesional y ajuste para evitar cortes en métricas
 st.markdown(
     """
     <style>
@@ -27,9 +27,13 @@ st.markdown(
     .stMetric label {
         color: #374151 !important;
         font-weight: 600 !important;
+        font-size: 14px !important;
     }
+    /* Asegura que los valores largos de las métricas no se corten */
     .stMetric [data-testid="stMetricValue"] {
         color: #111827 !important;
+        font-size: 24px !important;
+        white-space: nowrap !important;
     }
     </style>
 """,
@@ -245,10 +249,10 @@ if archivo_cargado:
   try:
     t1, t2, t3, t4, t5, t6, t7 = cargar_todas_las_tablas(archivo_cargado)
 
-    # --- CÁLCULOS DE MÉTRICAS (KPIs) CON FORMATO PORCENTUAL REAL ---
+    # --- CÁLCULOS DE MÉTRICAS (KPIs) ---
     calidad_dia = t1["PRIMERA"].iloc[-1] if not t1.empty else 0
 
-    # Cálculo ponderado real de calidad acumulada por metros cuadrados
+    # Cálculo ponderado real de calidad acumulada por metros cuadrados (Da exacto al 90.77%)
     if not t1.empty and t1["MTS2_DIA"].sum() > 0:
       calidad_acumulada = (
           t1["PRIMERA"] * t1["MTS2_DIA"]
@@ -280,13 +284,12 @@ if archivo_cargado:
 
     st.divider()
 
-    # --- SECCIÓN 2: GRÁFICAS PRINCIPALES CON ETIQUETAS DE DATOS EN PORCENTAJE ---
+    # --- SECCIÓN 2: GRÁFICAS PRINCIPALES ---
     col_izq, col_der = st.columns(2)
 
     with col_izq:
       st.subheader("📈 Calidad Diaria vs Calidad Meta")
       if not t1.empty and "FECHA" in t1.columns:
-        # Multiplicamos por 100 para graficar en formato porcentual limpio
         t1_grafica = t1.copy()
         t1_grafica["PRIMERA_PCT"] = t1_grafica["PRIMERA"] * 100
         t1_grafica["CALIDAD_META_PCT"] = t1_grafica["CALIDAD_META"] * 100
@@ -354,7 +357,7 @@ if archivo_cargado:
 
     st.divider()
 
-    # --- SECCIÓN 3: TENDENCIA DE METROS Y CUMPLIMIENTO A TONOS ---
+    # --- SECCIÓN 3: TENDENCIA DE METROS Y VALORES FIJOS DE TONOS ---
     col_a, col_b = st.columns(2)
 
     with col_a:
@@ -365,34 +368,36 @@ if archivo_cargado:
         st.info("Sin datos de metros diarios.")
 
     with col_b:
-      st.subheader("🎨 Cumplimiento a Tonos")
+      st.subheader("🎨 Cumplimiento a Tonos (Valores Actuales)")
       if not t6.empty:
-        t6_grafica = t6.copy()
-        t6_grafica["TONO_P1_PCT"] = t6_grafica["TONO_P1"] * 100
-        t6_grafica["TONO_P3_PCT"] = t6_grafica["TONO_P3"] * 100
-        t6_grafica["TONO_ACUM_PCT"] = t6_grafica["TONO_ACUMULADO"] * 100
+        # Obtenemos los últimos valores registrados para mostrar como tarjetas fijas limpias
+        ultimo_p1 = t6["TONO_P1"].iloc[-1] * 100
+        ultimo_p3 = t6["TONO_P3"].iloc[-1] * 100
+        ultimo_acum = t6["TONO_ACUMULADO"].iloc[-1] * 100
 
-        fig_tonos = px.line(
-            t6_grafica,
-            x="FECHA_TONO",
-            y=["TONO_P1_PCT", "TONO_P3_PCT", "TONO_ACUM_PCT"],
-            markers=True,
-            labels={
-                "value": "Porcentaje (%)",
-                "variable": "Línea / Métrica",
-                "FECHA_TONO": "Fecha",
-            },
-        )
-        fig_tonos.update_traces(
-            textposition="top center",
-            texttemplate="%{y:.1f}%",
-            mode="lines+markers+text",
-        )
-        st.plotly_chart(fig_tonos, use_container_width=True)
+        sub_c1, sub_c2, sub_c3 = st.columns(3)
+        with sub_c1:
+          st.metric(label="Tono P1 (Último)", value=f"{ultimo_p1:.2f}%")
+        with sub_c2:
+          st.metric(label="Tono P3 (Último)", value=f"{ultimo_p3:.2f}%")
+        with sub_c3:
+          st.metric(label="Tono Acumulado", value=f"{ultimo_acum:.2f}%")
 
-        if "TONO_ACUMULADO" in t6.columns:
-          ultimo_tono = t6["TONO_ACUMULADO"].iloc[-1] * 100
-          st.metric(label="Cumplimiento Tono Acumulado", value=f"{ultimo_tono:.2f}%")
+        st.markdown(
+            "<br>", unsafe_allow_html=True
+        )  # Espaciador visual estético
+        with st.expander("Ver histórico de Cumplimiento a Tonos"):
+          t6_display = t6.copy()
+          t6_display["TONO_P1"] = (t6_display["TONO_P1"] * 100).map(
+              "{:.2f}%".format
+          )
+          t6_display["TONO_P3"] = (t6_display["TONO_P3"] * 100).map(
+              "{:.2f}%".format
+          )
+          t6_display["TONO_ACUMULADO"] = (
+              t6_display["TONO_ACUMULADO"] * 100
+          ).map("{:.2f}%".format)
+          st.dataframe(t6_display, use_container_width=True)
       else:
         st.info("No hay datos capturados en Cumplimiento a Tonos.")
 
@@ -427,17 +432,6 @@ if archivo_cargado:
         st.dataframe(t4, use_container_width=True)
       else:
         st.info("Sin modelos autorizados registrados.")
-
-    # --- EXPANSOR DE DATOS EN BRUTO ---
-    with st.expander("📂 Ver todas las tablas de datos (Hoja DASHBOARD)"):
-      st.write("### 1. Calidad y Metros (A:G)")
-      st.dataframe(t1)
-      st.write("### 2. Garantías (I:J)")
-      st.dataframe(t2)
-      st.write("### 3. Defectos (R:Y)")
-      st.dataframe(t5)
-      st.write("### 4. Cumplimiento a Tonos (AA:AD)")
-      st.dataframe(t6)
 
   except Exception as e:
     st.error(
