@@ -46,6 +46,14 @@ st.markdown(
         font-size: 12px;
         font-weight: 500;
     }
+    .defect-card {
+        background-color: #ffffff;
+        padding: 15px;
+        border-radius: 8px;
+        border-left: 5px solid #e11d48;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        margin-bottom: 10px;
+    }
     </style>
 """,
     unsafe_allow_html=True,
@@ -75,15 +83,16 @@ with st.sidebar:
       st.session_state["autenticado"] = False
       st.rerun()
 
-  st.markdown("---")
-  if st.button("🔄 Reiniciar / Limpiar Sesión"):
-    if os.path.exists("temp_excel.xlsx"):
-      os.remove("temp_excel.xlsx")
-    st.cache_data.clear()
-    for key in list(st.session_state.keys()):
-      del st.session_state[key]
-    st.success("¡Datos reseteados con éxito!")
-    st.rerun()
+    # EL BOTÓN DE REINICIAR SOLO APARECE SI ESTÁS AUTENTICADO
+    st.markdown("---")
+    if st.button("🔄 Reiniciar / Limpiar Sesión"):
+      if os.path.exists("temp_excel.xlsx"):
+        os.remove("temp_excel.xlsx")
+      st.cache_data.clear()
+      for key in list(st.session_state.keys()):
+        del st.session_state[key]
+      st.success("¡Datos reseteados con éxito!")
+      st.rerun()
 
 # --- CARGAR ARCHIVO EXCEL ---
 archivo_cargado = None
@@ -107,26 +116,6 @@ if not archivo_cargado:
     xls_list = glob.glob("*.xlsx")
     if xls_list:
       archivo_cargado = xls_list[0]
-
-# --- ENCABEZADO PRINCIPAL ---
-col_logo, col_titulo = st.columns([1, 5])
-
-with col_logo:
-  if os.path.exists("logo_cesantoni.png"):
-    st.image("logo_cesantoni.png", use_container_width=True)
-  else:
-    st.markdown("### 🏭 Cesantoni")
-
-with col_titulo:
-  st.markdown(
-      """
-        <div style="background-color: #1e293b; padding: 22px; border-radius: 10px; margin-bottom: 25px; border-left: 6px solid #2563eb;">
-            <h2 style="color: white; margin: 0; font-weight: 700;">CALIDAD P1&P3</h2>
-            <p style="color: #94a3b8; margin: 0; font-size: 15px; font-weight: 500;">Todos somos calidad | Planta Zacatecas</p>
-        </div>
-    """,
-      unsafe_allow_html=True,
-  )
 
 
 # Función para leer todas las tablas de la hoja 'DASHBOARD'
@@ -265,6 +254,44 @@ if archivo_cargado:
   try:
     t1, t2, t3, t4, t5, t6, t7 = cargar_todas_las_tablas(archivo_cargado)
 
+    # Determinar la fecha de última actualización en base a los datos de la tabla 1 o fecha actual del archivo
+    ultima_fecha_datos = (
+        t1["FECHA"].max().strftime("%d/%m/%Y")
+        if not t1.empty
+        else "Sin fecha"
+    )
+
+    # --- ENCABEZADO PRINCIPAL CON FECHA DE ACTUALIZACIÓN A LA DERECHA ---
+    col_logo, col_titulo, col_fecha = st.columns([1, 4, 2])
+
+    with col_logo:
+      if os.path.exists("logo_cesantoni.png"):
+        st.image("logo_cesantoni.png", use_container_width=True)
+      else:
+        st.markdown("### 🏭 Cesantoni")
+
+    with col_titulo:
+      st.markdown(
+          """
+            <div style="background-color: #1e293b; padding: 22px; border-radius: 10px; margin-bottom: 25px; border-left: 6px solid #2563eb;">
+                <h2 style="color: white; margin: 0; font-weight: 700;">CALIDAD P1&P3</h2>
+                <p style="color: #94a3b8; margin: 0; font-size: 15px; font-weight: 500;">Todos somos calidad | Planta Zacatecas</p>
+            </div>
+        """,
+          unsafe_allow_html=True,
+      )
+
+    with col_fecha:
+      st.markdown(
+          f"""
+            <div style="background-color: #1e293b; padding: 18px; border-radius: 10px; text-align: right; margin-bottom: 25px;">
+                <span style="color: #94a3b8; font-size: 12px; display: block; text-transform: uppercase;">Última Actualización</span>
+                <span style="color: #ffffff; font-size: 18px; font-weight: 700;">📅 {ultima_fecha_datos}</span>
+            </div>
+        """,
+          unsafe_allow_html=True,
+      )
+
     # --- CÁLCULOS DE MÉTRICAS (KPIs) ---
     calidad_dia = t1["PRIMERA"].iloc[-1] if not t1.empty else 0
 
@@ -282,7 +309,7 @@ if archivo_cargado:
         (t1["CALIDAD_META"].iloc[-1] * 100) if not t1.empty else 95.0
     )
 
-    # --- SECCIÓN 1: TARJETAS DE INDICADORES ESTILO EJECUTIVO ---
+    # --- SECCIÓN 1: TARJETAS DE INDICADORES ---
     st.subheader("📊 Indicadores de Producción y Calidad")
     k1, k2, k3, k4, k5 = st.columns(5)
 
@@ -363,38 +390,78 @@ if archivo_cargado:
 
     st.divider()
 
-    # --- SECCIÓN 2: GRÁFICAS PRINCIPALES (CALIDAD DIARIA MÁS GRANDE) ---
-    col_izq, col_der = st.columns(2)
+    # --- SECCIÓN 2: GRÁFICA DE CALIDAD DIARIA GRANDE (A TODO EL ANCHO) ---
+    st.subheader("📈 Calidad Diaria vs Calidad Meta")
+    if not t1.empty and "FECHA" in t1.columns:
+      t1_grafica = t1.copy()
+      t1_grafica["PRIMERA_PCT"] = t1_grafica["PRIMERA"] * 100
+      t1_grafica["CALIDAD_META_PCT"] = t1_grafica["CALIDAD_META"] * 100
 
-    with col_izq:
-      st.subheader("📈 Calidad Diaria vs Calidad Meta")
+      fig_calidad = go.Figure()
+
+      # Línea de Calidad Diaria CON etiquetas de datos
+      fig_calidad.add_trace(
+          go.Scatter(
+              x=t1_grafica["FECHA"],
+              y=t1_grafica["PRIMERA_PCT"],
+              mode="lines+markers+text",
+              name="PRIMERA_PCT",
+              text=[f"{v:.1f}%" for v in t1_grafica["PRIMERA_PCT"]],
+              textposition="top center",
+              line=dict(color="#1f77b4", width=3),
+          )
+      )
+
+      # Línea de Meta SIN etiquetas de datos para evitar saturación
+      fig_calidad.add_trace(
+          go.Scatter(
+              x=t1_grafica["FECHA"],
+              y=t1_grafica["CALIDAD_META_PCT"],
+              mode="lines",
+              name="CALIDAD_META_PCT",
+              line=dict(color="#ff7f0e", width=2, dash="dash"),
+          )
+      )
+
+      fig_calidad.update_layout(
+          height=500,
+          margin=dict(l=20, r=20, t=30, b=20),
+          legend=dict(
+              orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1
+          ),
+          xaxis_title="Fecha",
+          yaxis_title="Porcentaje (%)",
+      )
+      st.plotly_chart(fig_calidad, use_container_width=True)
+    else:
+      st.info("Sin datos suficientes para la gráfica de calidad.")
+
+    st.divider()
+
+    # --- SECCIÓN 3: TENDENCIA DE METROS Y GARANTÍAS ABAJO ---
+    col_a, col_b = st.columns(2)
+
+    with col_a:
+      st.subheader("🏭 Tendencia de Metros Cuadrados Diarios")
       if not t1.empty and "FECHA" in t1.columns:
-        t1_grafica = t1.copy()
-        t1_grafica["PRIMERA_PCT"] = t1_grafica["PRIMERA"] * 100
-        t1_grafica["CALIDAD_META_PCT"] = t1_grafica["CALIDAD_META"] * 100
-
-        fig_calidad = px.line(
-            t1_grafica,
+        fig_mts = px.line(
+            t1,
             x="FECHA",
-            y=["PRIMERA_PCT", "CALIDAD_META_PCT"],
+            y="MTS2_DIA",
             markers=True,
-            labels={
-                "value": "Porcentaje (%)",
-                "variable": "Métrica",
-                "FECHA": "Fecha",
-            },
-            height=420,  # Gráfica más grande y cómoda a la vista
+            labels={"MTS2_DIA": "Metros (m²)", "FECHA": "Fecha"},
+            height=380,
         )
-        fig_calidad.update_traces(
+        fig_mts.update_traces(
             textposition="top center",
-            texttemplate="%{y:.1f}%",
+            texttemplate="%{y:,.0f} m²",
             mode="lines+markers+text",
         )
-        st.plotly_chart(fig_calidad, use_container_width=True)
+        st.plotly_chart(fig_mts, use_container_width=True)
       else:
-        st.info("Sin datos suficientes para la gráfica de calidad.")
+        st.info("Sin datos de metros diarios.")
 
-    with col_der:
+    with col_b:
       st.subheader("📦 Garantías por Mes")
       if not t2.empty and "MES_GARANTIAS" in t2.columns:
         fig_garantias = px.bar(
@@ -406,7 +473,7 @@ if archivo_cargado:
                 "MES_GARANTIAS": "Mes",
                 "GARANTIAS": "Total Garantías",
             },
-            height=420,
+            height=380,
         )
         fig_garantias.update_traces(
             texttemplate="%{text}",
@@ -438,118 +505,84 @@ if archivo_cargado:
 
     st.divider()
 
-    # --- SECCIÓN 3: TENDENCIA DE METROS Y TONOS ---
-    col_a, col_b = st.columns(2)
+    # --- SECCIÓN 4: CUMPLIMIENTO A TONOS ---
+    st.subheader("🎨 Cumplimiento a Tonos (Valores Actuales)")
+    if not t6.empty:
+      t6_validos = t6.dropna(subset=["TONO_P1", "TONO_P3", "TONO_ACUMULADO"])
 
-    with col_a:
-      st.subheader("🏭 Tendencia de Metros Cuadrados Diarios")
-      if not t1.empty and "FECHA" in t1.columns:
-        fig_mts = px.line(
-            t1,
-            x="FECHA",
-            y="MTS2_DIA",
-            markers=True,
-            labels={"MTS2_DIA": "Metros (m²)", "FECHA": "Fecha"},
-        )
-        fig_mts.update_traces(
-            textposition="top center",
-            texttemplate="%{y:,.0f} m²",
-            mode="lines+markers+text",
-        )
-        st.plotly_chart(fig_mts, use_container_width=True)
+      if not t6_validos.empty:
+        ultimo_p1 = t6_validos["TONO_P1"].iloc[-1] * 100
+        ultimo_p3 = t6_validos["TONO_P3"].iloc[-1] * 100
+        ultimo_acum = t6_validos["TONO_ACUMULADO"].iloc[-1] * 100
+        fecha_ultimo = t6_validos["FECHA_TONO"].iloc[-1].strftime("%d/%m/%Y")
       else:
-        st.info("Sin datos de metros diarios.")
+        ultimo_p1, ultimo_p3, ultimo_acum, fecha_ultimo = (
+            0,
+            0,
+            0,
+            "Sin datos recientes",
+        )
 
-    with col_b:
-      st.subheader("🎨 Cumplimiento a Tonos (Valores Actuales)")
-      if not t6.empty:
-        # Filtramos filas donde los valores NO sean nulos para agarrar el último día con datos reales
-        t6_validos = t6.dropna(subset=["TONO_P1", "TONO_P3", "TONO_ACUMULADO"])
+      sub_c1, sub_c2, sub_c3 = st.columns(3)
+      with sub_c1:
+        st.metric(label="Tono P1 (Último)", value=f"{ultimo_p1:.2f}%")
+      with sub_c2:
+        st.metric(label="Tono P3 (Último)", value=f"{ultimo_p3:.2f}%")
+      with sub_c3:
+        st.metric(label="Tono Acumulado", value=f"{ultimo_acum:.2f}%")
 
-        if not t6_validos.empty:
-          ultimo_p1 = t6_validos["TONO_P1"].iloc[-1] * 100
-          ultimo_p3 = t6_validos["TONO_P3"].iloc[-1] * 100
-          ultimo_acum = t6_validos["TONO_ACUMULADO"].iloc[-1] * 100
-          fecha_ultimo = (
-              t6_validos["FECHA_TONO"].iloc[-1].strftime("%d/%m/%Y")
-          )
-        else:
-          ultimo_p1, ultimo_p3, ultimo_acum, fecha_ultimo = (
-              0,
-              0,
-              0,
-              "Sin datos recientes",
-          )
-
-        sub_c1, sub_c2, sub_c3 = st.columns(3)
-        with sub_c1:
-          st.metric(label="Tono P1 (Último)", value=f"{ultimo_p1:.2f}%")
-        with sub_c2:
-          st.metric(label="Tono P3 (Último)", value=f"{ultimo_p3:.2f}%")
-        with sub_c3:
-          st.metric(label="Tono Acumulado", value=f"{ultimo_acum:.2f}%")
-
-        st.caption(f"📅 Última actualización de tonos: {fecha_ultimo}")
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        with st.expander("Ver histórico de Cumplimiento a Tonos"):
-          t6_display = t6.copy()
-          t6_display["FECHA_TONO"] = t6_display["FECHA_TONO"].dt.strftime(
-              "%d/%m/%Y"
-          )
-          t6_display["TONO_P1"] = (t6_display["TONO_P1"] * 100).map(
-              "{:.2f}%".format
-          )
-          t6_display["TONO_P3"] = (t6_display["TONO_P3"] * 100).map(
-              "{:.2f}%".format
-          )
-          t6_display["TONO_ACUMULADO"] = (
-              t6_display["TONO_ACUMULADO"] * 100
-          ).map("{:.2f}%".format)
-          st.dataframe(t6_display, use_container_width=True)
-      else:
-        st.info("No hay datos capturados en Cumplimiento a Tonos.")
+      st.caption(f"📅 Última actualización de tonos: {fecha_ultimo}")
+    else:
+      st.info("No hay datos capturados en Cumplimiento a Tonos.")
 
     st.divider()
 
-    # --- SECCIÓN 4: DEFECTOS (Formato Estilo Tabla Ejecutiva) ---
+    # --- SECCIÓN 5: REGISTRO DE DEFECTOS (Estilo Tarjetas Ejecutivas / Referencia) ---
     st.subheader("⚠️ Registro de Defectos, Porcentajes y Responsables")
     if not t5.empty:
-      t5_display = t5.copy()
-      t5_display["FECHA_DEFECTO"] = t5_display["FECHA_DEFECTO"].dt.strftime(
-          "%d/%m/%Y"
-      )
-      if "PORCENTAJE_DEFECTO" in t5_display.columns:
-        t5_display["PORCENTAJE_DEFECTO"] = (
-            t5_display["PORCENTAJE_DEFECTO"] * 100
-        ).map("{:.2f}%".format)
+      for index, row in t5.iterrows():
+        fec = (
+            row["FECHA_DEFECTO"].strftime("%d/%m/%Y")
+            if pd.notnull(row["FECHA_DEFECTO"])
+            else ""
+        )
+        def_nombre = row["DEFECTO"]
+        mod = row["MODELO_DEFECTO"]
+        fmt = row["FORMATO_DEFECTO"]
+        mts = row["MTS2_DEFECTO"]
+        resp = row["RESPONSABLE_DEFECTO"]
+        pct = (
+            row["PORCENTAJE_DEFECTO"] * 100
+            if pd.notnull(row["PORCENTAJE_DEFECTO"])
+            else 0
+        )
 
-      # Seleccionamos y renombramos columnas clave para que luzca ordenado como referencia
-      columnas_mostrar = [
-          "FECHA_DEFECTO",
-          "DEFECTO",
-          "MODELO_DEFECTO",
-          "FORMATO_DEFECTO",
-          "HORNO_DEFECTO",
-          "MTS2_DEFECTO",
-          "RESPONSABLE_DEFECTO",
-          "PORCENTAJE_DEFECTO",
-      ]
-      columnas_existentes = [
-          c for c in columnas_mostrar if c in t5_display.columns
-      ]
-
-      st.dataframe(
-          t5_display[columnas_existentes],
-          use_container_width=True,
-          hide_index=True,
-      )
+        st.markdown(
+            f"""
+            <div class="metric-card" style="border-left: 5px solid #e11d48; padding: 15px; margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong style="font-size: 16px; color: #1e293b;">{def_nombre}</strong>
+                        <span style="color: #64748b; font-size: 13px; margin-left: 10px;">({mod} - {fmt})</span>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-size: 18px; font-weight: 700; color: #e11d48;">{pct:.2f}%</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 13px; color: #64748b;">
+                    <span>📅 Fecha: {fec} | 🏭 Metros: {mts:,.2f} m²</span>
+                    <span>👤 Responsable: <strong style="color: #0f172a;">{resp}</strong></span>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     else:
       st.info("Sin registros de defectos capturados.")
 
     st.divider()
 
-    # --- SECCIÓN 5: MODELOS EN PRUEBA Y AUTORIZADOS ---
+    # --- SECCIÓN 6: MODELOS EN PRUEBA Y AUTORIZADOS ---
     col_c, col_d = st.columns(2)
     with col_c:
       st.subheader("🔬 Modelos en Prueba")
