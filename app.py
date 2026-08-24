@@ -167,7 +167,7 @@ def cargar_todas_las_tablas(path_archivo):
   )
   df_t2 = df_t2.sort_values("MES_GARANTIAS").reset_index(drop=True)
 
-  # Modelos en Prueba (L:M) corregido para evitar que se oculten
+  # Modelos en Prueba (L:M)
   df_t3 = pd.read_excel(
       path_archivo,
       sheet_name="DASHBOARD",
@@ -180,7 +180,7 @@ def cargar_todas_las_tablas(path_archivo):
       df_t3["HORNO_PRUEBAS"].astype(str).str.replace(".0", "", regex=False)
   )
 
-  # Modelos Autorizados (O:P) corregido para evitar que se oculten
+  # Modelos Autorizados (O:P)
   df_t4 = pd.read_excel(
       path_archivo,
       sheet_name="DASHBOARD",
@@ -249,8 +249,14 @@ def cargar_todas_las_tablas(path_archivo):
   df_t7 = df_t7.dropna(subset=["PALLET_FECHA"])
   for col in ["PALLET_1RA", "PALLET_2DA", "PALLET_3RA", "PALLET_RECHAZADO"]:
     df_t7[col] = pd.to_numeric(df_t7[col], errors="coerce").fillna(0)
+
+  # Limpieza y estandarización robusta de la columna AK (PRINCIPAL_RECHAZO)
   df_t7["PRINCIPAL_RECHAZO"] = (
-      df_t7["PRINCIPAL_RECHAZO"].fillna("N/A").astype(str)
+      df_t7["PRINCIPAL_RECHAZO"]
+      .astype(str)
+      .str.strip()
+      .str.upper()
+      .replace(["NAN", "NAT", "NONE", ""], "N/A")
   )
 
   return df_t1, df_t2, df_t3, df_t4, df_t5, df_t6, df_t7
@@ -395,13 +401,12 @@ if archivo_cargado:
 
     st.divider()
 
-    # --- SECCIÓN 2: GRÁFICA DE CALIDAD DIARIA (TODOS LOS DÍAS VISIBLES) ---
+    # --- SECCIÓN 2: GRÁFICA DE CALIDAD DIARIA ---
     st.subheader("📈 Calidad Diaria vs Calidad Meta")
     if not t1.empty and "FECHA" in t1.columns:
       t1_grafica = t1.copy()
       t1_grafica["PRIMERA_PCT"] = t1_grafica["PRIMERA"] * 100
       t1_grafica["CALIDAD_META_PCT"] = t1_grafica["CALIDAD_META"] * 100
-      # Convertir fecha a string formateado para forzar que aparezcan todos los días en el eje X
       t1_grafica["FECHA_STR"] = t1_grafica["FECHA"].dt.strftime("%d/%m/%Y")
 
       fig_calidad = go.Figure()
@@ -434,9 +439,7 @@ if archivo_cargado:
           legend=dict(
               orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1
           ),
-          xaxis=dict(
-              type="category", title="Fecha"
-          ),  # Forzar despliegue de todas las categorías/fechas
+          xaxis=dict(type="category", title="Fecha"),
           yaxis_title="Porcentaje (%)",
       )
       st.plotly_chart(fig_calidad, use_container_width=True)
@@ -600,13 +603,12 @@ if archivo_cargado:
       ).sum()
       total_rechazado_acum = t7["PALLET_RECHAZADO"].sum()
 
-      # Calcular el principal motivo de rechazo global (el más frecuente)
-      if not t7["PRINCIPAL_RECHAZO"].dropna().empty:
-        principal_rechazo_global = (
-            t7["PRINCIPAL_RECHAZO"].mode().iloc[0]
-            if not t7["PRINCIPAL_RECHAZO"].mode().empty
-            else "N/A"
-        )
+      # Obtener el principal motivo de rechazo global filtrando valores vacíos o nulos
+      rechazos_validos = t7["PRINCIPAL_RECHAZO"][
+          ~t7["PRINCIPAL_RECHAZO"].isin(["N/A", "NAN", "NONE", ""])
+      ]
+      if not rechazos_validos.empty:
+        principal_rechazo_global = rechazos_validos.mode().iloc[0]
       else:
         principal_rechazo_global = "N/A"
 
@@ -639,7 +641,7 @@ if archivo_cargado:
                 <div class="metric-card">
                     <div class="metric-title">Principal Motivo de Rechazo</div>
                     <div class="metric-value" style="font-size: 20px; color: #d97706; margin-top: 5px;">{principal_rechazo_global}</div>
-                    <div class="metric-footer">Causa Frecuente</div>
+                    <div class="metric-footer">Causa Frecuente (Col. AK)</div>
                 </div>
                 """,
             unsafe_allow_html=True,
