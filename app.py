@@ -231,6 +231,7 @@ def cargar_todas_las_tablas(path_archivo):
   for col in ["TONO_P1", "TONO_P3", "TONO_ACUMULADO"]:
     df_t6[col] = pd.to_numeric(df_t6[col], errors="coerce")
 
+  # Lectura de Liberación de Pallet (Columnas AF:AK)
   df_t7 = pd.read_excel(
       path_archivo,
       sheet_name="DASHBOARD",
@@ -245,7 +246,10 @@ def cargar_todas_las_tablas(path_archivo):
           "PRINCIPAL_RECHAZO",
       ],
   )
-  df_t7 = df_t7.dropna(subset=["PALLET_FECHA"])
+  df_t7["PALLET_FECHA"] = pd.to_datetime(df_t7["PALLET_FECHA"], errors="coerce")
+  df_t7 = df_t7.dropna(subset=["PALLET_FECHA", "PRINCIPAL_RECHAZO"], how="any")
+  for col in ["PALLET_1RA", "PALLET_2DA", "PALLET_3RA", "PALLET_RECHAZADO"]:
+    df_t7[col] = pd.to_numeric(df_t7[col], errors="coerce").fillna(0)
 
   return df_t1, df_t2, df_t3, df_t4, df_t5, df_t6, df_t7
 
@@ -537,7 +541,7 @@ if archivo_cargado:
 
     st.divider()
 
-    # --- SECCIÓN 5: REGISTRO DE DEFECTOS (Estilo Tarjetas Ejecutivas / Referencia) ---
+    # --- SECCIÓN 5: REGISTRO DE DEFECTOS ---
     st.subheader("⚠️ Registro de Defectos, Porcentajes y Responsables")
     if not t5.empty:
       for index, row in t5.iterrows():
@@ -582,7 +586,48 @@ if archivo_cargado:
 
     st.divider()
 
-    # --- SECCIÓN 6: MODELOS EN PRUEBA Y AUTORIZADOS ---
+    # --- SECCIÓN 6: LIBERACIÓN DE PALLET (AF:AK) ---
+    st.subheader("📦 Registro de Liberación de Pallets")
+    if not t7.empty:
+      for index, row in t7.iterrows():
+        fec_pallet = (
+            row["PALLET_FECHA"].strftime("%d/%m/%Y")
+            if pd.notnull(row["PALLET_FECHA"])
+            else ""
+        )
+        p_1ra = row["PALLET_1RA"]
+        p_2da = row["PALLET_2DA"]
+        p_3ra = row["PALLET_3RA"]
+        p_rech = row["PALLET_RECHAZADO"]
+        motivo_rech = row["PRINCIPAL_RECHAZO"]
+
+        st.markdown(
+            f"""
+            <div class="metric-card" style="border-left: 5px solid #2563eb; padding: 15px; margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong style="font-size: 15px; color: #1e293b;">📅 Fecha de Liberación: {fec_pallet}</strong>
+                    </div>
+                    <div style="font-size: 13px; color: #64748b;">
+                        Principal Rechazo: <strong style="color: #e11d48;">{motivo_rech}</strong>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 20px; margin-top: 10px; font-size: 13px; color: #334155;">
+                    <span>🥇 1ra: <strong>{p_1ra:,.0f}</strong></span>
+                    <span>🥈 2da: <strong>{p_2da:,.0f}</strong></span>
+                    <span>🥉 3ra: <strong>{p_3ra:,.0f}</strong></span>
+                    <span>❌ Rechazado: <strong style="color: #e11d48;">{p_rech:,.0f}</strong></span>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+      st.info("Sin registros de liberación de pallets.")
+
+    st.divider()
+
+    # --- SECCIÓN 7: MODELOS EN PRUEBA Y AUTORIZADOS ---
     col_c, col_d = st.columns(2)
     with col_c:
       st.subheader("🔬 Modelos en Prueba")
