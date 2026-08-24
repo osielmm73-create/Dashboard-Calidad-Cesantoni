@@ -3,25 +3,31 @@ import os
 import pandas as pd
 import streamlit as st
 
-# 1. Configuración de la página en modo ancho (Panel Industrial)
+# 1. Configuración de la página en modo ancho
 st.set_page_config(
-    page_title="Dashboard - Sistema de Calidad | Cesantoni",
-    page_icon="🏭",
-    layout="wide",
+    page_title="CALIDAD P1&P3 - Sistema de Calidad", page_icon="🏭", layout="wide"
 )
 
-# Estilos CSS personalizados para el panel y diseño industrial
+# Estilos CSS mejorados: Fondo claro profesional y legibilidad total en tarjetas
 st.markdown(
     """
     <style>
     .main {
-        background-color: #0b131a;
+        background-color: #f4f6f9;
     }
     .stMetric {
-        background-color: #161f28;
+        background-color: #ffffff;
         padding: 15px;
         border-radius: 8px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        border: 1px solid #d1d5db;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .stMetric label {
+        color: #374151 !important;
+        font-weight: 600 !important;
+    }
+    .stMetric [data-testid="stMetricValue"] {
+        color: #111827 !important;
     }
     </style>
 """,
@@ -30,7 +36,6 @@ st.markdown(
 
 # --- BARRA LATERAL: LOGOTIPO Y ACCESO ADMINISTRATIVO ---
 with st.sidebar:
-  # Intentar mostrar el logotipo en la esquina superior izquierda
   if os.path.exists("logo.png"):
     st.image("logo.png", use_container_width=True)
   else:
@@ -39,7 +44,6 @@ with st.sidebar:
   st.markdown("---")
   st.subheader("Panel de Control")
 
-  # Control de sesión para modificar / subir archivos
   if "autenticado" not in st.session_state:
     st.session_state["autenticado"] = False
 
@@ -48,7 +52,6 @@ with st.sidebar:
       usuario = st.text_input("Usuario")
       password = st.text_input("Contraseña", type="password")
       if st.button("Iniciar Sesión"):
-        # Puedes cambiar aquí tu usuario y contraseña seguros
         if usuario == "calidad" and password == "cesantoni2026":
           st.session_state["autenticado"] = True
           st.success("¡Acceso concedido!")
@@ -61,8 +64,7 @@ with st.sidebar:
       st.session_state["autenticado"] = False
       st.rerun()
 
-# --- CARGA DEL ARCHIVO DE EXCEL ---
-# Si el admin está autenticado, puede subir un nuevo archivo Excel
+# --- CARGAR ARCHIVO EXCEL ---
 archivo_cargado = None
 if st.session_state["autenticado"]:
   st.sidebar.markdown("---")
@@ -71,18 +73,15 @@ if st.session_state["autenticado"]:
       "Sube tu archivo Excel actualizado", type=["xlsx"]
   )
   if archivo_subido is not None:
-    # Guardar temporalmente el archivo subido en la sesión
     with open("temp_excel.xlsx", "wb") as f:
       f.write(archivo_subido.getbuffer())
     archivo_cargado = "temp_excel.xlsx"
     st.sidebar.success("¡Archivo cargado con éxito!")
 
-# Si no se ha subido uno nuevo, buscar si hay uno guardado previamente en el servidor
 if not archivo_cargado:
   if os.path.exists("temp_excel.xlsx"):
     archivo_cargado = "temp_excel.xlsx"
   else:
-    # Buscar cualquier excel por defecto en el repositorio si existe
     import glob
 
     xls_list = glob.glob("*.xlsx")
@@ -92,16 +91,16 @@ if not archivo_cargado:
 # --- ENCABEZADO PRINCIPAL ---
 st.markdown(
     """
-    <div style="background-color: #161f28; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-        <h2 style="color: white; margin: 0;">DASHBOARD - SISTEMA DE CALIDAD</h2>
-        <p style="color: #8b949e; margin: 0;">PRODUCTO TERMINADO – PISO CERÁMICO | PLANTA ZACATECAS</p>
+    <div style="background-color: #1e293b; padding: 22px; border-radius: 10px; margin-bottom: 25px; border-left: 6px solid #2563eb;">
+        <h2 style="color: white; margin: 0; font-weight: 700;">CALIDAD P1&P3</h2>
+        <p style="color: #94a3b8; margin: 0; font-size: 15px; font-weight: 500;">Todos somos calidad | Planta Zacatecas</p>
     </div>
 """,
     unsafe_allow_html=True,
 )
 
 
-# 2. Función para leer las 7 tablas de la hoja 'DASHBOARD'
+# 2. Función optimizada para leer las tablas de la hoja 'DASHBOARD'
 @st.cache_data
 def cargar_todas_las_tablas(path_archivo):
   # Tabla 1: Calidad y Metros (Cols A:G)
@@ -120,6 +119,17 @@ def cargar_todas_las_tablas(path_archivo):
           "CALIDAD_META",
       ],
   )
+  # Limpiar filas vacías en la fecha y asegurar formato numérico
+  df_t1 = df_t1.dropna(subset=["FECHA"])
+  for col in ["PRIMERA", "SEGUNDA", "TERCERA", "QUINTA", "MTS2_DIA", "CALIDAD_META"]:
+    df_t1[col] = pd.to_numeric(df_t1[col], errors="coerce").fillna(0)
+  
+  # Si la calidad viene en formato decimal (ej. 0.945), convertirla a porcentaje real (94.5)
+  if df_t1["PRIMERA"].max() <= 1.0 and df_t1["PRIMERA"].max() > 0:
+    df_t1["PRIMERA"] = df_t1["PRIMERA"] * 100
+  if df_t1["CALIDAD_META"].max() <= 1.0 and df_t1["CALIDAD_META"].max() > 0:
+    df_t1["CALIDAD_META"] = df_t1["CALIDAD_META"] * 100
+
   # Tabla 2: Garantías (Cols I:J)
   df_t2 = pd.read_excel(
       path_archivo,
@@ -128,6 +138,13 @@ def cargar_todas_las_tablas(path_archivo):
       skiprows=1,
       names=["MES_GARANTIAS", "GARANTIAS"],
   )
+  df_t2 = df_t2.dropna(subset=["MES_GARANTIAS"])
+  # Excluir la fila de 'TOTAL' si viene escrita textualmente para sumar limpio
+  df_t2 = df_t2[
+      ~df_t2["MES_GARANTIAS"].astype(str).str.upper().str.contains("TOTAL")
+  ]
+  df_t2["GARANTIAS"] = pd.to_numeric(df_t2["GARANTIAS"], errors="coerce").fillna(0)
+
   # Tabla 3: Modelos en prueba (Cols L:M)
   df_t3 = pd.read_excel(
       path_archivo,
@@ -135,7 +152,8 @@ def cargar_todas_las_tablas(path_archivo):
       usecols="L:M",
       skiprows=1,
       names=["MODELO_PRUEBA", "HORNO_PRUEBAS"],
-  )
+  ).dropna(how="all")
+
   # Tabla 4: Modelos autorizados (Cols O:P)
   df_t4 = pd.read_excel(
       path_archivo,
@@ -143,7 +161,8 @@ def cargar_todas_las_tablas(path_archivo):
       usecols="O:P",
       skiprows=1,
       names=["MODELOS_AUTORIZADOS", "HORNO_AUTORIZADOS"],
-  )
+  ).dropna(how="all")
+
   # Tabla 5: Defectos (Cols R:Y)
   df_t5 = pd.read_excel(
       path_archivo,
@@ -160,7 +179,8 @@ def cargar_todas_las_tablas(path_archivo):
           "RESPONSABLE_DEFECTO",
           "PORCENTAJE_DEFECTO",
       ],
-  )
+  ).dropna(how="all")
+
   # Tabla 6: Cumplimiento a tonos (Cols AA:AD)
   df_t6 = pd.read_excel(
       path_archivo,
@@ -168,7 +188,8 @@ def cargar_todas_las_tablas(path_archivo):
       usecols="AA:AD",
       skiprows=1,
       names=["FECHA_TONO", "TONO_P1", "TONO_P3", "TONO_ACUMULADO"],
-  )
+  ).dropna(how="all")
+
   # Tabla 7: Liberación de pallet (Cols AF:AK)
   df_t7 = pd.read_excel(
       path_archivo,
@@ -176,134 +197,127 @@ def cargar_todas_las_tablas(path_archivo):
       usecols="AF:AK",
       skiprows=1,
       names=[
-          "FECHA_PALLET",
+          "PALLET_FECHA",
           "PALLET_1RA",
           "PALLET_2DA",
           "PALLET_3RA",
           "PALLET_RECHAZADO",
           "PRINCIPAL_RECHAZO",
       ],
-  )
+  ).dropna(how="all")
 
-  return (
-      df_t1.dropna(how="all"),
-      df_t2.dropna(how="all"),
-      df_t3.dropna(how="all"),
-      df_t4.dropna(how="all"),
-      df_t5.dropna(how="all"),
-      df_t6.dropna(how="all"),
-      df_t7.dropna(how="all"),
-  )
+  return df_t1, df_t2, df_t3, df_t4, df_t5, df_t6, df_t7
 
 
 if archivo_cargado:
   try:
     t1, t2, t3, t4, t5, t6, t7 = cargar_todas_las_tablas(archivo_cargado)
 
-    # --- SECCIÓN DE TARJETAS DE KPIs SUPERIORES ---
-    st.subheader("📊 Indicadores Generales")
-    total_mts = t1["MTS2_DIA"].sum() if not t1.empty else 0
-    prom_primera = t1["PRIMERA"].mean() if not t1.empty else 0
+    # --- CÁLCULOS DE MÉTRICAS (KPIs) ---
+    # Calidad y Metros
+    calidad_dia = t1["PRIMERA"].iloc[-1] if not t1.empty else 0
+    calidad_acumulada = t1["PRIMERA"].mean() if not t1.empty else 0
+    
+    mts_dia = t1["MTS2_DIA"].iloc[-1] if not t1.empty else 0
+    mts_acumulados = t1["MTS2_DIA"].sum() if not t1.empty else 0
     total_garantias = t2["GARANTIAS"].sum() if not t2.empty else 0
-    total_defectos_mts = t5["MTS2_DEFECTO"].sum() if not t5.empty else 0
 
-    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-    with kpi1:
-      st.metric(label="Metros Producidos (Día)", value=f"{total_mts:,.2f} m²")
-    with kpi2:
-      st.metric(label="Promedio Calidad 1ra", value=f"{prom_primera:.1f}%")
-    with kpi3:
-      st.metric(label="Total Garantías", value=int(total_garantias))
-    with kpi4:
-      st.metric(label="Metros con Defecto", value=f"{total_defectos_mts:,.2f} m²")
+    # --- SECCIÓN 1: TARJETAS DE INDICADORES PRINCIPALES ---
+    st.subheader("📊 Indicadores de Producción y Calidad")
+    k1, k2, k3, k4, k5 = st.columns(5)
+    
+    with k1:
+      st.metric(label="Calidad del Día (1ra)", value=f"{calidad_dia:.2f}%")
+    with k2:
+      st.metric(label="Calidad Acumulada (1ra)", value=f"{calidad_acumulada:.2f}%")
+    with k3:
+      st.metric(label="Metros del Día", value=f"{mts_dia:,.2f} m²")
+    with k4:
+      st.metric(label="Metros Acumulados", value=f"{mts_acumulados:,.2f} m²")
+    with k5:
+      st.metric(label="Total Garantías Anual", value=int(total_garantias))
 
     st.divider()
 
-    # --- SECCIÓN: GRÁFICOS Y ANÁLISIS PRINCIPAL ---
+    # --- SECCIÓN 2: GRÁFICAS PRINCIPALES ---
     col_izq, col_der = st.columns(2)
 
     with col_izq:
-      st.subheader("📈 Tendencia de Metros Cuadrados (Tabla A:G)")
+      st.subheader("📈 Calidad Diaria vs Calidad Meta")
       if not t1.empty and "FECHA" in t1.columns:
-        st.line_chart(t1.set_index("FECHA")["MTS2_DIA"])
+        # Preparamos dataframe combinando calidad diaria y meta para la gráfica
+        df_calidad_graf = t1.set_index("FECHA")[["PRIMERA", "CALIDAD_META"]]
+        df_calidad_graf.columns = ["Calidad 1ra (%)", "Meta (%)"]
+        st.line_chart(df_calidad_graf)
       else:
-        st.info("No hay datos suficientes para graficar la producción diaria.")
+        st.info("Sin datos suficientes para la gráfica de calidad.")
 
     with col_der:
-      st.subheader("🛑 Defectos por Responsable / Área (Tabla R:Y)")
-      if not t5.empty and "RESPONSABLE_DEFECTO" in t5.columns:
-        defectos_resp = t5["RESPONSABLE_DEFECTO"].value_counts()
-        st.bar_chart(defectos_resp)
+      st.subheader("📦 Garantías por Mes")
+      if not t2.empty and "MES_GARANTIAS" in t2.columns:
+        st.bar_chart(t2.set_index("MES_GARANTIAS")["GARANTIAS"])
       else:
-        st.info("No hay registros de defectos en la tabla.")
+        st.info("Sin registros de garantías.")
 
     st.divider()
 
-    # --- SECCIÓN: SEGUIMIENTO DE PROCESOS Y PRUEBAS ---
+    # --- SECCIÓN 3: TENDENCIA DE METROS Y CUMPLIMIENTO A TONOS (DATO) ---
     col_a, col_b = st.columns(2)
 
     with col_a:
+      st.subheader("🏭 Tendencia de Metros Cuadrados Diarios")
+      if not t1.empty and "FECHA" in t1.columns:
+        st.line_chart(t1.set_index("FECHA")["MTS2_DIA"])
+      else:
+        st.info("Sin datos de metros diarios.")
+
+    with col_b:
+      st.subheader("🎨 Cumplimiento a Tonos (Datos Actuales)")
+      if not t6.empty:
+        # Mostramos los últimos registros de cumplimiento a tonos como una tarjeta / tabla limpia de datos
+        st.dataframe(t6.tail(5), use_container_width=True)
+        
+        # Extraemos el último acumulado de tonos si existe la columna
+        if "TONO_ACUMULADO" in t6.columns:
+          ultimo_tono = t6["TONO_ACUMULADO"].iloc[-1]
+          st.metric(label="Cumplimiento Tono Acumulado", value=f"{ultimo_tono}")
+      else:
+        st.info("No hay datos capturados en Cumplimiento a Tonos.")
+
+    st.divider()
+
+    # --- SECCIÓN 4: MODELOS EN PRUEBA Y AUTORIZADOS ---
+    col_c, col_d = st.columns(2)
+    with col_c:
       st.subheader("🔬 Modelos en Prueba (Tabla L:M)")
       if not t3.empty:
         st.dataframe(t3, use_container_width=True)
       else:
         st.info("Sin modelos en prueba registrados.")
 
-    with col_b:
+    with col_d:
       st.subheader("✅ Modelos Autorizados (Tabla O:P)")
       if not t4.empty:
         st.dataframe(t4, use_container_width=True)
       else:
         st.info("Sin modelos autorizados registrados.")
 
-    st.divider()
-
-    # --- SECCIÓN: CUMPLIMIENTO DE TONOS Y PALLETS ---
-    col_c, col_d = st.columns(2)
-
-    with col_c:
-      st.subheader("🎨 Cumplimiento a Tonos Acumulado (Tabla AA:AD)")
-      if not t6.empty and "FECHA_TONO" in t6.columns:
-        st.line_chart(t6.set_index("FECHA_TONO")["TONO_ACUMULADO"])
-      else:
-        st.info("Sin datos de cumplimiento a tonos.")
-
-    with col_d:
-      st.subheader("📦 Liberación y Rechazo de Pallets (Tabla AF:AK)")
-      if not t7.empty:
-        st.dataframe(t7.head(10), use_container_width=True)
-
-    # --- EXPANSOR GENERAL PARA REVISAR TODAS LAS TABLAS ---
-    with st.expander(
-        "📂 Ver todas las tablas de datos en bruto (Hoja DASHBOARD)"
-    ):
+    # --- EXPANSOR DE DATOS EN BRUTO ---
+    with st.expander("📂 Ver todas las tablas de datos (Hoja DASHBOARD)"):
       st.write("### 1. Calidad y Metros (A:G)")
       st.dataframe(t1)
       st.write("### 2. Garantías (I:J)")
       st.dataframe(t2)
-      st.write("### 3. Modelos en Prueba (L:M)")
-      st.dataframe(t3)
-      st.write("### 4. Modelos Autorizados (O:P)")
-      st.dataframe(t4)
-      st.write("### 5. Defectos (R:Y)")
+      st.write("### 3. Defectos (R:Y)")
       st.dataframe(t5)
-      st.write("### 6. Cumplimiento a Tonos (AA:AD)")
-      st.dataframe(t6)
-      st.write("### 7. Liberación de Pallet (AF:AK)")
-      st.dataframe(t7)
 
   except Exception as e:
     st.error(
-        f"⚠️ Error al procesar el archivo. Asegúrate de que contenga la hoja"
-        f" 'DASHBOARD' con las columnas correctas. Detalle: {e}"
+        f"⚠️ Error al procesar el archivo. Verifica que contenga la hoja"
+        f" 'DASHBOARD' y el formato correcto. Detalle: {e}"
     )
 else:
   st.warning(
-      "⚠️ **Bienvenido.** Para visualizar el dashboard, inicia sesión en la"
-      " barra lateral y sube tu archivo de Excel, o coloca un archivo inicial"
-      " en el repositorio."
-  )
-  st.info(
-      "💡 *Credenciales por defecto del Admin:* Usuario: `calidad` | Contraseña:"
-      " `cesantoni2026` (puedes modificarlas directamente en el código)."
+      "⚠️ **Bienvenido.** Inicia sesión en la barra lateral para subir tu"
+      " archivo Excel de calidad."
   )
