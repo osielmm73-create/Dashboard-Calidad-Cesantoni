@@ -1,3 +1,4 @@
+import glob
 import io
 import os
 import pandas as pd
@@ -91,19 +92,19 @@ if not archivo_cargado:
   if os.path.exists("temp_excel.xlsx"):
     archivo_cargado = "temp_excel.xlsx"
   else:
-    import glob
-
     xls_list = glob.glob("*.xlsx")
     if xls_list:
       archivo_cargado = xls_list[0]
 
-# --- ENCABEZADO PRINCIPAL CON LOGOTIPO EN PÁGINA PRINCIPAL ---
-col_logo, col_titulo = st.columns([1, 6])
+# --- ENCABEZADO PRINCIPAL CON LOGOTIPO DIRECTO ---
+col_logo, col_titulo = st.columns([1, 5])
+
 with col_logo:
-  if os.path.exists("logo.png"):
-    st.image("logo.png", use_container_width=True)
+  # Carga directa del archivo exacto de tu repositorio de GitHub
+  if os.path.exists("logo_cesantoni.png"):
+    st.image("logo_cesantoni.png", use_container_width=True)
   else:
-    st.markdown("### 🏭")
+    st.markdown("### 🏭 Cesantoni")
 
 with col_titulo:
   st.markdown(
