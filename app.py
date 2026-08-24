@@ -182,7 +182,7 @@ def cargar_todas_las_tablas(path_archivo):
   )
   df_t4 = df_t4.dropna(subset=["MODELOS_AUTORIZADOS"])
 
-  # Tabla 5: Defectos (Cols R:Y) - Robustecida para evitar que se oculte por filas vacías intermedias
+  # Tabla 5: Defectos (Cols R:Y)
   df_t5 = pd.read_excel(
       path_archivo,
       sheet_name="DASHBOARD",
@@ -208,7 +208,7 @@ def cargar_todas_las_tablas(path_archivo):
       df_t5["PORCENTAJE_DEFECTO"], errors="coerce"
   ).fillna(0)
 
-  # Tabla 6: Cumplimiento a tonos (Cols AA:AD) - Robustecida
+  # Tabla 6: Cumplimiento a tonos (Cols AA:AD)
   df_t6 = pd.read_excel(
       path_archivo,
       sheet_name="DASHBOARD",
@@ -245,9 +245,16 @@ if archivo_cargado:
   try:
     t1, t2, t3, t4, t5, t6, t7 = cargar_todas_las_tablas(archivo_cargado)
 
-    # --- CÁLCULOS DE MÉTRICAS (KPIs) ---
+    # --- CÁLCULOS DE MÉTRICAS (KPIs) CON FORMATO PORCENTUAL REAL ---
     calidad_dia = t1["PRIMERA"].iloc[-1] if not t1.empty else 0
-    calidad_acumulada = t1["PRIMERA"].mean() if not t1.empty else 0
+
+    # Cálculo ponderado real de calidad acumulada por metros cuadrados
+    if not t1.empty and t1["MTS2_DIA"].sum() > 0:
+      calidad_acumulada = (
+          t1["PRIMERA"] * t1["MTS2_DIA"]
+      ).sum() / t1["MTS2_DIA"].sum()
+    else:
+      calidad_acumulada = t1["PRIMERA"].mean() if not t1.empty else 0
 
     mts_dia = t1["MTS2_DIA"].iloc[-1] if not t1.empty else 0
     mts_acumulados = t1["MTS2_DIA"].sum() if not t1.empty else 0
@@ -258,22 +265,11 @@ if archivo_cargado:
     k1, k2, k3, k4, k5 = st.columns(5)
 
     with k1:
-      st.metric(
-          label="Calidad del Día (1ra)",
-          value=(
-              f"{calidad_dia*100:.2f}%"
-              if calidad_dia <= 1
-              else f"{calidad_dia:.2f}%"
-          ),
-      )
+      st.metric(label="Calidad del Día (1ra)", value=f"{calidad_dia * 100:.2f}%")
     with k2:
       st.metric(
           label="Calidad Acumulada (1ra)",
-          value=(
-              f"{calidad_acumulada*100:.2f}%"
-              if calidad_acumulada <= 1
-              else f"{calidad_acumulada:.2f}%"
-          ),
+          value=f"{calidad_acumulada * 100:.2f}%",
       )
     with k3:
       st.metric(label="Metros del Día", value=f"{mts_dia:,.2f} m²")
@@ -284,27 +280,32 @@ if archivo_cargado:
 
     st.divider()
 
-    # --- SECCIÓN 2: GRÁFICAS PRINCIPALES CON ETIQUETAS DE DATOS ---
+    # --- SECCIÓN 2: GRÁFICAS PRINCIPALES CON ETIQUETAS DE DATOS EN PORCENTAJE ---
     col_izq, col_der = st.columns(2)
 
     with col_izq:
       st.subheader("📈 Calidad Diaria vs Calidad Meta")
       if not t1.empty and "FECHA" in t1.columns:
+        # Multiplicamos por 100 para graficar en formato porcentual limpio
+        t1_grafica = t1.copy()
+        t1_grafica["PRIMERA_PCT"] = t1_grafica["PRIMERA"] * 100
+        t1_grafica["CALIDAD_META_PCT"] = t1_grafica["CALIDAD_META"] * 100
+
         fig_calidad = px.line(
-            t1,
+            t1_grafica,
             x="FECHA",
-            y=["PRIMERA", "CALIDAD_META"],
+            y=["PRIMERA_PCT", "CALIDAD_META_PCT"],
             markers=True,
             labels={
-                "value": "Porcentaje",
+                "value": "Porcentaje (%)",
                 "variable": "Métrica",
                 "FECHA": "Fecha",
             },
         )
         fig_calidad.update_traces(
             textposition="top center",
-            texttemplate="%{y:.1%}",
-            mode="lines+markers",
+            texttemplate="%{y:.1f}%",
+            mode="lines+markers+text",
         )
         st.plotly_chart(fig_calidad, use_container_width=True)
       else:
@@ -366,32 +367,46 @@ if archivo_cargado:
     with col_b:
       st.subheader("🎨 Cumplimiento a Tonos")
       if not t6.empty:
-        # Gráfica de línea para ver P1 y P3 en cumplimiento a tonos
+        t6_grafica = t6.copy()
+        t6_grafica["TONO_P1_PCT"] = t6_grafica["TONO_P1"] * 100
+        t6_grafica["TONO_P3_PCT"] = t6_grafica["TONO_P3"] * 100
+        t6_grafica["TONO_ACUM_PCT"] = t6_grafica["TONO_ACUMULADO"] * 100
+
         fig_tonos = px.line(
-            t6,
+            t6_grafica,
             x="FECHA_TONO",
-            y=["TONO_P1", "TONO_P3", "TONO_ACUMULADO"],
+            y=["TONO_P1_PCT", "TONO_P3_PCT", "TONO_ACUM_PCT"],
             markers=True,
             labels={
-                "value": "Valor",
+                "value": "Porcentaje (%)",
                 "variable": "Línea / Métrica",
                 "FECHA_TONO": "Fecha",
             },
         )
+        fig_tonos.update_traces(
+            textposition="top center",
+            texttemplate="%{y:.1f}%",
+            mode="lines+markers+text",
+        )
         st.plotly_chart(fig_tonos, use_container_width=True)
 
         if "TONO_ACUMULADO" in t6.columns:
-          ultimo_tono = t6["TONO_ACUMULADO"].iloc[-1]
-          st.metric(label="Cumplimiento Tono Acumulado", value=f"{ultimo_tono}")
+          ultimo_tono = t6["TONO_ACUMULADO"].iloc[-1] * 100
+          st.metric(label="Cumplimiento Tono Acumulado", value=f"{ultimo_tono:.2f}%")
       else:
         st.info("No hay datos capturados en Cumplimiento a Tonos.")
 
     st.divider()
 
-    # --- SECCIÓN 4: DEFECTOS (CON RESPONSABLES) ---
+    # --- SECCIÓN 4: DEFECTOS (CON RESPONSABLES Y PORCENTAJE LIMPIO) ---
     st.subheader("⚠️ Registro de Defectos y Responsables")
     if not t5.empty:
-      st.dataframe(t5, use_container_width=True)
+      t5_display = t5.copy()
+      if "PORCENTAJE_DEFECTO" in t5_display.columns:
+        t5_display["PORCENTAJE_DEFECTO"] = (
+            t5_display["PORCENTAJE_DEFECTO"] * 100
+        ).map("{:.2f}%".format)
+      st.dataframe(t5_display, use_container_width=True)
     else:
       st.info("Sin registros de defectos capturados.")
 
