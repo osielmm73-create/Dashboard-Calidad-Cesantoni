@@ -29,7 +29,6 @@ st.markdown(
         font-weight: 600 !important;
         font-size: 14px !important;
     }
-    /* Asegura que los valores largos de las métricas no se corten */
     .stMetric [data-testid="stMetricValue"] {
         color: #111827 !important;
         font-size: 24px !important;
@@ -40,14 +39,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BARRA LATERAL: LOGOTIPO Y ACCESO ADMINISTRATIVO ---
+# --- BARRA LATERAL: CONTROL Y ACCESO ADMINISTRATIVO ---
 with st.sidebar:
-  if os.path.exists("logo.png"):
-    st.image("logo.png", use_container_width=True)
-  else:
-    st.markdown("### **CESANTONI**")
-
-  st.markdown("---")
   st.subheader("Panel de Control")
 
   if "autenticado" not in st.session_state:
@@ -70,9 +63,19 @@ with st.sidebar:
       st.session_state["autenticado"] = False
       st.rerun()
 
+  # Botón para limpiar / resetear la sesión y datos temporales
+  st.markdown("---")
+  if st.button("🔄 Reiniciar / Limpiar Sesión"):
+    if os.path.exists("temp_excel.xlsx"):
+      os.remove("temp_excel.xlsx")
+    for key in list(st.session_state.keys()):
+      del st.session_state[key]
+    st.success("¡Datos reseteados con éxito!")
+    st.rerun()
+
 # --- CARGAR ARCHIVO EXCEL ---
 archivo_cargado = None
-if st.session_state["autenticado"]:
+if st.session_state.get("autenticado", False):
   st.sidebar.markdown("---")
   st.sidebar.subheader("📤 Actualizar Base de Datos")
   archivo_subido = st.sidebar.file_uploader(
@@ -94,22 +97,29 @@ if not archivo_cargado:
     if xls_list:
       archivo_cargado = xls_list[0]
 
-# --- ENCABEZADO PRINCIPAL ---
-st.markdown(
-    """
-    <div style="background-color: #1e293b; padding: 22px; border-radius: 10px; margin-bottom: 25px; border-left: 6px solid #2563eb;">
-        <h2 style="color: white; margin: 0; font-weight: 700;">CALIDAD P1&P3</h2>
-        <p style="color: #94a3b8; margin: 0; font-size: 15px; font-weight: 500;">Todos somos calidad | Planta Zacatecas</p>
-    </div>
-""",
-    unsafe_allow_html=True,
-)
+# --- ENCABEZADO PRINCIPAL CON LOGOTIPO EN PÁGINA PRINCIPAL ---
+col_logo, col_titulo = st.columns([1, 6])
+with col_logo:
+  if os.path.exists("logo.png"):
+    st.image("logo.png", use_container_width=True)
+  else:
+    st.markdown("### 🏭")
+
+with col_titulo:
+  st.markdown(
+      """
+        <div style="background-color: #1e293b; padding: 22px; border-radius: 10px; margin-bottom: 25px; border-left: 6px solid #2563eb;">
+            <h2 style="color: white; margin: 0; font-weight: 700;">CALIDAD P1&P3</h2>
+            <p style="color: #94a3b8; margin: 0; font-size: 15px; font-weight: 500;">Todos somos calidad | Planta Zacatecas</p>
+        </div>
+    """,
+      unsafe_allow_html=True,
+  )
 
 
-# 2. Función optimizada para leer todas las tablas de la hoja 'DASHBOARD'
+# Función para leer todas las tablas de la hoja 'DASHBOARD'
 @st.cache_data
 def cargar_todas_las_tablas(path_archivo):
-  # Tabla 1: Calidad y Metros (Cols A:G)
   df_t1 = pd.read_excel(
       path_archivo,
       sheet_name="DASHBOARD",
@@ -130,7 +140,6 @@ def cargar_todas_las_tablas(path_archivo):
   for col in ["PRIMERA", "SEGUNDA", "TERCERA", "QUINTA", "MTS2_DIA", "CALIDAD_META"]:
     df_t1[col] = pd.to_numeric(df_t1[col], errors="coerce").fillna(0)
 
-  # Tabla 2: Garantías (Cols I:J) - Ordenadas de Enero a Diciembre
   df_t2 = pd.read_excel(
       path_archivo,
       sheet_name="DASHBOARD",
@@ -166,7 +175,6 @@ def cargar_todas_las_tablas(path_archivo):
   )
   df_t2 = df_t2.sort_values("MES_GARANTIAS").reset_index(drop=True)
 
-  # Tabla 3: Modelos en prueba (Cols L:M)
   df_t3 = pd.read_excel(
       path_archivo,
       sheet_name="DASHBOARD",
@@ -176,7 +184,6 @@ def cargar_todas_las_tablas(path_archivo):
   )
   df_t3 = df_t3.dropna(subset=["MODELO_PRUEBA"])
 
-  # Tabla 4: Modelos autorizados (Cols O:P)
   df_t4 = pd.read_excel(
       path_archivo,
       sheet_name="DASHBOARD",
@@ -186,7 +193,6 @@ def cargar_todas_las_tablas(path_archivo):
   )
   df_t4 = df_t4.dropna(subset=["MODELOS_AUTORIZADOS"])
 
-  # Tabla 5: Defectos (Cols R:Y)
   df_t5 = pd.read_excel(
       path_archivo,
       sheet_name="DASHBOARD",
@@ -212,7 +218,6 @@ def cargar_todas_las_tablas(path_archivo):
       df_t5["PORCENTAJE_DEFECTO"], errors="coerce"
   ).fillna(0)
 
-  # Tabla 6: Cumplimiento a tonos (Cols AA:AD)
   df_t6 = pd.read_excel(
       path_archivo,
       sheet_name="DASHBOARD",
@@ -225,7 +230,6 @@ def cargar_todas_las_tablas(path_archivo):
   for col in ["TONO_P1", "TONO_P3", "TONO_ACUMULADO"]:
     df_t6[col] = pd.to_numeric(df_t6[col], errors="coerce").fillna(0)
 
-  # Tabla 7: Liberación de pallet (Cols AF:AK)
   df_t7 = pd.read_excel(
       path_archivo,
       sheet_name="DASHBOARD",
@@ -252,7 +256,6 @@ if archivo_cargado:
     # --- CÁLCULOS DE MÉTRICAS (KPIs) ---
     calidad_dia = t1["PRIMERA"].iloc[-1] if not t1.empty else 0
 
-    # Cálculo ponderado real de calidad acumulada por metros cuadrados (Da exacto al 90.77%)
     if not t1.empty and t1["MTS2_DIA"].sum() > 0:
       calidad_acumulada = (
           t1["PRIMERA"] * t1["MTS2_DIA"]
@@ -357,20 +360,31 @@ if archivo_cargado:
 
     st.divider()
 
-    # --- SECCIÓN 3: TENDENCIA DE METROS Y VALORES FIJOS DE TONOS ---
+    # --- SECCIÓN 3: TENDENCIA DE METROS CON ETIQUETAS Y TONOS FIJOS ---
     col_a, col_b = st.columns(2)
 
     with col_a:
       st.subheader("🏭 Tendencia de Metros Cuadrados Diarios")
       if not t1.empty and "FECHA" in t1.columns:
-        st.line_chart(t1.set_index("FECHA")["MTS2_DIA"])
+        fig_mts = px.line(
+            t1,
+            x="FECHA",
+            y="MTS2_DIA",
+            markers=True,
+            labels={"MTS2_DIA": "Metros (m²)", "FECHA": "Fecha"},
+        )
+        fig_mts.update_traces(
+            textposition="top center",
+            texttemplate="%{y:,.0f} m²",
+            mode="lines+markers+text",
+        )
+        st.plotly_chart(fig_mts, use_container_width=True)
       else:
         st.info("Sin datos de metros diarios.")
 
     with col_b:
       st.subheader("🎨 Cumplimiento a Tonos (Valores Actuales)")
       if not t6.empty:
-        # Obtenemos los últimos valores registrados para mostrar como tarjetas fijas limpias
         ultimo_p1 = t6["TONO_P1"].iloc[-1] * 100
         ultimo_p3 = t6["TONO_P3"].iloc[-1] * 100
         ultimo_acum = t6["TONO_ACUMULADO"].iloc[-1] * 100
@@ -383,9 +397,7 @@ if archivo_cargado:
         with sub_c3:
           st.metric(label="Tono Acumulado", value=f"{ultimo_acum:.2f}%")
 
-        st.markdown(
-            "<br>", unsafe_allow_html=True
-        )  # Espaciador visual estético
+        st.markdown("<br>", unsafe_allow_html=True)
         with st.expander("Ver histórico de Cumplimiento a Tonos"):
           t6_display = t6.copy()
           t6_display["TONO_P1"] = (t6_display["TONO_P1"] * 100).map(
