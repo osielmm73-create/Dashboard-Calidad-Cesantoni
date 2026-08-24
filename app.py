@@ -46,14 +46,6 @@ st.markdown(
         font-size: 12px;
         font-weight: 500;
     }
-    .defect-card {
-        background-color: #ffffff;
-        padding: 15px;
-        border-radius: 8px;
-        border-left: 5px solid #e11d48;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-        margin-bottom: 10px;
-    }
     </style>
 """,
     unsafe_allow_html=True,
@@ -83,7 +75,6 @@ with st.sidebar:
       st.session_state["autenticado"] = False
       st.rerun()
 
-    # EL BOTÓN DE REINICIAR SOLO APARECE SI ESTÁS AUTENTICADO
     st.markdown("---")
     if st.button("🔄 Reiniciar / Limpiar Sesión"):
       if os.path.exists("temp_excel.xlsx"):
@@ -176,6 +167,7 @@ def cargar_todas_las_tablas(path_archivo):
   )
   df_t2 = df_t2.sort_values("MES_GARANTIAS").reset_index(drop=True)
 
+  # Modelos en Prueba (L:M) corregido para evitar que se oculten
   df_t3 = pd.read_excel(
       path_archivo,
       sheet_name="DASHBOARD",
@@ -184,7 +176,11 @@ def cargar_todas_las_tablas(path_archivo):
       names=["MODELO_PRUEBA", "HORNO_PRUEBAS"],
   )
   df_t3 = df_t3.dropna(subset=["MODELO_PRUEBA"])
+  df_t3["HORNO_PRUEBAS"] = (
+      df_t3["HORNO_PRUEBAS"].astype(str).str.replace(".0", "", regex=False)
+  )
 
+  # Modelos Autorizados (O:P) corregido para evitar que se oculten
   df_t4 = pd.read_excel(
       path_archivo,
       sheet_name="DASHBOARD",
@@ -193,6 +189,9 @@ def cargar_todas_las_tablas(path_archivo):
       names=["MODELOS_AUTORIZADOS", "HORNO_AUTORIZADOS"],
   )
   df_t4 = df_t4.dropna(subset=["MODELOS_AUTORIZADOS"])
+  df_t4["HORNO_AUTORIZADOS"] = (
+      df_t4["HORNO_AUTORIZADOS"].astype(str).str.replace(".0", "", regex=False)
+  )
 
   df_t5 = pd.read_excel(
       path_archivo,
@@ -247,9 +246,12 @@ def cargar_todas_las_tablas(path_archivo):
       ],
   )
   df_t7["PALLET_FECHA"] = pd.to_datetime(df_t7["PALLET_FECHA"], errors="coerce")
-  df_t7 = df_t7.dropna(subset=["PALLET_FECHA", "PRINCIPAL_RECHAZO"], how="any")
+  df_t7 = df_t7.dropna(subset=["PALLET_FECHA"])
   for col in ["PALLET_1RA", "PALLET_2DA", "PALLET_3RA", "PALLET_RECHAZADO"]:
     df_t7[col] = pd.to_numeric(df_t7[col], errors="coerce").fillna(0)
+  df_t7["PRINCIPAL_RECHAZO"] = (
+      df_t7["PRINCIPAL_RECHAZO"].fillna("N/A").astype(str)
+  )
 
   return df_t1, df_t2, df_t3, df_t4, df_t5, df_t6, df_t7
 
@@ -258,14 +260,13 @@ if archivo_cargado:
   try:
     t1, t2, t3, t4, t5, t6, t7 = cargar_todas_las_tablas(archivo_cargado)
 
-    # Determinar la fecha de última actualización en base a los datos de la tabla 1 o fecha actual del archivo
     ultima_fecha_datos = (
         t1["FECHA"].max().strftime("%d/%m/%Y")
         if not t1.empty
         else "Sin fecha"
     )
 
-    # --- ENCABEZADO PRINCIPAL CON FECHA DE ACTUALIZACIÓN A LA DERECHA ---
+    # --- ENCABEZADO PRINCIPAL ---
     col_logo, col_titulo, col_fecha = st.columns([1, 4, 2])
 
     with col_logo:
@@ -394,19 +395,20 @@ if archivo_cargado:
 
     st.divider()
 
-    # --- SECCIÓN 2: GRÁFICA DE CALIDAD DIARIA GRANDE (A TODO EL ANCHO) ---
+    # --- SECCIÓN 2: GRÁFICA DE CALIDAD DIARIA (TODOS LOS DÍAS VISIBLES) ---
     st.subheader("📈 Calidad Diaria vs Calidad Meta")
     if not t1.empty and "FECHA" in t1.columns:
       t1_grafica = t1.copy()
       t1_grafica["PRIMERA_PCT"] = t1_grafica["PRIMERA"] * 100
       t1_grafica["CALIDAD_META_PCT"] = t1_grafica["CALIDAD_META"] * 100
+      # Convertir fecha a string formateado para forzar que aparezcan todos los días en el eje X
+      t1_grafica["FECHA_STR"] = t1_grafica["FECHA"].dt.strftime("%d/%m/%Y")
 
       fig_calidad = go.Figure()
 
-      # Línea de Calidad Diaria CON etiquetas de datos
       fig_calidad.add_trace(
           go.Scatter(
-              x=t1_grafica["FECHA"],
+              x=t1_grafica["FECHA_STR"],
               y=t1_grafica["PRIMERA_PCT"],
               mode="lines+markers+text",
               name="PRIMERA_PCT",
@@ -416,10 +418,9 @@ if archivo_cargado:
           )
       )
 
-      # Línea de Meta SIN etiquetas de datos para evitar saturación
       fig_calidad.add_trace(
           go.Scatter(
-              x=t1_grafica["FECHA"],
+              x=t1_grafica["FECHA_STR"],
               y=t1_grafica["CALIDAD_META_PCT"],
               mode="lines",
               name="CALIDAD_META_PCT",
@@ -433,7 +434,9 @@ if archivo_cargado:
           legend=dict(
               orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1
           ),
-          xaxis_title="Fecha",
+          xaxis=dict(
+              type="category", title="Fecha"
+          ),  # Forzar despliegue de todas las categorías/fechas
           yaxis_title="Porcentaje (%)",
       )
       st.plotly_chart(fig_calidad, use_container_width=True)
@@ -442,18 +445,20 @@ if archivo_cargado:
 
     st.divider()
 
-    # --- SECCIÓN 3: TENDENCIA DE METROS Y GARANTÍAS ABAJO ---
+    # --- SECCIÓN 3: TENDENCIA DE METROS Y GARANTÍAS ---
     col_a, col_b = st.columns(2)
 
     with col_a:
       st.subheader("🏭 Tendencia de Metros Cuadrados Diarios")
       if not t1.empty and "FECHA" in t1.columns:
+        t1_m_grafica = t1.copy()
+        t1_m_grafica["FECHA_STR"] = t1_m_grafica["FECHA"].dt.strftime("%d/%m/%Y")
         fig_mts = px.line(
-            t1,
-            x="FECHA",
+            t1_m_grafica,
+            x="FECHA_STR",
             y="MTS2_DIA",
             markers=True,
-            labels={"MTS2_DIA": "Metros (m²)", "FECHA": "Fecha"},
+            labels={"MTS2_DIA": "Metros (m²)", "FECHA_STR": "Fecha"},
             height=380,
         )
         fig_mts.update_traces(
@@ -461,6 +466,7 @@ if archivo_cargado:
             texttemplate="%{y:,.0f} m²",
             mode="lines+markers+text",
         )
+        fig_mts.update_xaxes(type="category")
         st.plotly_chart(fig_mts, use_container_width=True)
       else:
         st.info("Sin datos de metros diarios.")
@@ -586,40 +592,56 @@ if archivo_cargado:
 
     st.divider()
 
-    # --- SECCIÓN 6: LIBERACIÓN DE PALLET (AF:AK) ---
-    st.subheader("📦 Registro de Liberación de Pallets")
+    # --- SECCIÓN 6: LIBERACIÓN DE PALLET (TOTALES Y PRINCIPAL RECHAZO) ---
+    st.subheader("📦 Resumen de Liberación de Pallets")
     if not t7.empty:
-      for index, row in t7.iterrows():
-        fec_pallet = (
-            row["PALLET_FECHA"].strftime("%d/%m/%Y")
-            if pd.notnull(row["PALLET_FECHA"])
-            else ""
-        )
-        p_1ra = row["PALLET_1RA"]
-        p_2da = row["PALLET_2DA"]
-        p_3ra = row["PALLET_3RA"]
-        p_rech = row["PALLET_RECHAZADO"]
-        motivo_rech = row["PRINCIPAL_RECHAZO"]
+      total_liberado_acum = (
+          t7["PALLET_1RA"] + t7["PALLET_2DA"] + t7["PALLET_3RA"]
+      ).sum()
+      total_rechazado_acum = t7["PALLET_RECHAZADO"].sum()
 
+      # Calcular el principal motivo de rechazo global (el más frecuente)
+      if not t7["PRINCIPAL_RECHAZO"].dropna().empty:
+        principal_rechazo_global = (
+            t7["PRINCIPAL_RECHAZO"].mode().iloc[0]
+            if not t7["PRINCIPAL_RECHAZO"].mode().empty
+            else "N/A"
+        )
+      else:
+        principal_rechazo_global = "N/A"
+
+      p_col1, p_col2, p_col3 = st.columns(3)
+      with p_col1:
         st.markdown(
             f"""
-            <div class="metric-card" style="border-left: 5px solid #2563eb; padding: 15px; margin-bottom: 8px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <strong style="font-size: 15px; color: #1e293b;">📅 Fecha de Liberación: {fec_pallet}</strong>
-                    </div>
-                    <div style="font-size: 13px; color: #64748b;">
-                        Principal Rechazo: <strong style="color: #e11d48;">{motivo_rech}</strong>
-                    </div>
+                <div class="metric-card">
+                    <div class="metric-title">Total Liberado (1ra+2da+3ra)</div>
+                    <div class="metric-value" style="color: #2563eb;">{total_liberado_acum:,.0f}</div>
+                    <div class="metric-footer">Acumulado General</div>
                 </div>
-                <div style="display: flex; gap: 20px; margin-top: 10px; font-size: 13px; color: #334155;">
-                    <span>🥇 1ra: <strong>{p_1ra:,.0f}</strong></span>
-                    <span>🥈 2da: <strong>{p_2da:,.0f}</strong></span>
-                    <span>🥉 3ra: <strong>{p_3ra:,.0f}</strong></span>
-                    <span>❌ Rechazado: <strong style="color: #e11d48;">{p_rech:,.0f}</strong></span>
+                """,
+            unsafe_allow_html=True,
+        )
+      with p_col2:
+        st.markdown(
+            f"""
+                <div class="metric-card">
+                    <div class="metric-title">Total Rechazado</div>
+                    <div class="metric-value" style="color: #e11d48;">{total_rechazado_acum:,.0f}</div>
+                    <div class="metric-footer">Pallets No Aprobados</div>
                 </div>
-            </div>
-            """,
+                """,
+            unsafe_allow_html=True,
+        )
+      with p_col3:
+        st.markdown(
+            f"""
+                <div class="metric-card">
+                    <div class="metric-title">Principal Motivo de Rechazo</div>
+                    <div class="metric-value" style="font-size: 20px; color: #d97706; margin-top: 5px;">{principal_rechazo_global}</div>
+                    <div class="metric-footer">Causa Frecuente</div>
+                </div>
+                """,
             unsafe_allow_html=True,
         )
     else:
