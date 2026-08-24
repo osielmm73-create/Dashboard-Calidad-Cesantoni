@@ -11,29 +11,41 @@ st.set_page_config(
     page_title="CALIDAD P1&P3 - Sistema de Calidad", page_icon="🏭", layout="wide"
 )
 
-# Estilos CSS mejorados: Fondo claro profesional y ajuste para evitar cortes en métricas
+# Estilos CSS mejorados para tarjetas tipo panel ejecutivo moderno
 st.markdown(
     """
     <style>
     .main {
         background-color: #f4f6f9;
     }
-    .stMetric {
+    /* Contenedor personalizado para las tarjetas de indicadores */
+    .metric-card {
         background-color: #ffffff;
-        padding: 15px;
-        border-radius: 8px;
-        border: 1px solid #d1d5db;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        padding: 20px;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        margin-bottom: 10px;
+        position: relative;
     }
-    .stMetric label {
-        color: #374151 !important;
-        font-weight: 600 !important;
-        font-size: 14px !important;
+    .metric-title {
+        color: #64748b;
+        font-weight: 600;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 5px;
     }
-    .stMetric [data-testid="stMetricValue"] {
-        color: #111827 !important;
-        font-size: 24px !important;
-        white-space: nowrap !important;
+    .metric-value {
+        color: #1e293b;
+        font-size: 28px;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+    .metric-footer {
+        color: #94a3b8;
+        font-size: 12px;
+        font-weight: 500;
     }
     </style>
 """,
@@ -64,12 +76,10 @@ with st.sidebar:
       st.session_state["autenticado"] = False
       st.rerun()
 
-  # Botón para limpiar / resetear la sesión y datos temporales
   st.markdown("---")
   if st.button("🔄 Reiniciar / Limpiar Sesión"):
     if os.path.exists("temp_excel.xlsx"):
       os.remove("temp_excel.xlsx")
-    # Limpiamos también la caché de Streamlit
     st.cache_data.clear()
     for key in list(st.session_state.keys()):
       del st.session_state[key]
@@ -85,10 +95,9 @@ if st.session_state.get("autenticado", False):
       "Sube tu archivo Excel actualizado", type=["xlsx"]
   )
   if archivo_subido is not None:
-    # Guardamos el archivo subido y LIMPIAMOS LA CACHÉ para forzar actualización
     with open("temp_excel.xlsx", "wb") as f:
       f.write(archivo_subido.getbuffer())
-    st.cache_data.clear()  # <-- Esto borra la memoria vieja al subir uno nuevo
+    st.cache_data.clear()
     archivo_cargado = "temp_excel.xlsx"
     st.sidebar.success("¡Archivo cargado y actualizado con éxito!")
 
@@ -270,24 +279,88 @@ if archivo_cargado:
     mts_dia = t1["MTS2_DIA"].iloc[-1] if not t1.empty else 0
     mts_acumulados = t1["MTS2_DIA"].sum() if not t1.empty else 0
     total_garantias = t2["GARANTIAS"].sum() if not t2.empty else 0
+    meta_actual = (
+        (t1["CALIDAD_META"].iloc[-1] * 100) if not t1.empty else 95.0
+    )
 
-    # --- SECCIÓN 1: TARJETAS DE INDICADORES PRINCIPALES ---
+    # --- SECCIÓN 1: TARJETAS DE INDICADORES ESTILO EJECUTIVO ---
     st.subheader("📊 Indicadores de Producción y Calidad")
     k1, k2, k3, k4, k5 = st.columns(5)
 
     with k1:
-      st.metric(label="Calidad del Día (1ra)", value=f"{calidad_dia * 100:.2f}%")
-    with k2:
-      st.metric(
-          label="Calidad Acumulada (1ra)",
-          value=f"{calidad_acumulada * 100:.2f}%",
+      st.markdown(
+          f"""
+            <div class="metric-card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span class="metric-title">Calidad del Día (1ra)</span>
+                    <span style="font-size: 20px;">✅</span>
+                </div>
+                <div class="metric-value">{calidad_dia * 100:.2f}%</div>
+                <div class="metric-footer">Meta ≥ {meta_actual:.1f}%</div>
+            </div>
+            """,
+          unsafe_allow_html=True,
       )
+
+    with k2:
+      st.markdown(
+          f"""
+            <div class="metric-card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span class="metric-title">Calidad Acumulada</span>
+                    <span style="font-size: 20px;">📈</span>
+                </div>
+                <div class="metric-value">{calidad_acumulada * 100:.2f}%</div>
+                <div class="metric-footer">Rendimiento Global 1ra</div>
+            </div>
+            """,
+          unsafe_allow_html=True,
+      )
+
     with k3:
-      st.metric(label="Metros del Día", value=f"{mts_dia:,.2f} m²")
+      st.markdown(
+          f"""
+            <div class="metric-card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span class="metric-title">Metros del Día</span>
+                    <span style="font-size: 20px;">🏭</span>
+                </div>
+                <div class="metric-value" style="font-size: 24px;">{mts_dia:,.2f} m²</div>
+                <div class="metric-footer">Producción Diaria</div>
+            </div>
+            """,
+          unsafe_allow_html=True,
+      )
+
     with k4:
-      st.metric(label="Metros Acumulados", value=f"{mts_acumulados:,.2f} m²")
+      st.markdown(
+          f"""
+            <div class="metric-card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span class="metric-title">Metros Acumulados</span>
+                    <span style="font-size: 20px;">📦</span>
+                </div>
+                <div class="metric-value" style="font-size: 24px;">{mts_acumulados:,.2f} m²</div>
+                <div class="metric-footer">Total Fabricado</div>
+            </div>
+            """,
+          unsafe_allow_html=True,
+      )
+
     with k5:
-      st.metric(label="Total Garantías Anual", value=int(total_garantias))
+      st.markdown(
+          f"""
+            <div class="metric-card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span class="metric-title">Total Garantías</span>
+                    <span style="font-size: 20px;">⚠️</span>
+                </div>
+                <div class="metric-value">{int(total_garantias)}</div>
+                <div class="metric-footer">Reclamos del Año</div>
+            </div>
+            """,
+          unsafe_allow_html=True,
+      )
 
     st.divider()
 
@@ -364,7 +437,7 @@ if archivo_cargado:
 
     st.divider()
 
-    # --- SECCIÓN 3: TENDENCIA DE METROS CON ETIQUETAS Y TONOS FIJOS ---
+    # --- SECCIÓN 3: TENDENCIA DE METROS Y TONOS ---
     col_a, col_b = st.columns(2)
 
     with col_a:
@@ -419,7 +492,7 @@ if archivo_cargado:
 
     st.divider()
 
-    # --- SECCIÓN 4: DEFECTOS (CON RESPONSABLES Y PORCENTAJE LIMPIO) ---
+    # --- SECCIÓN 4: DEFECTOS ---
     st.subheader("⚠️ Registro de Defectos y Responsables")
     if not t5.empty:
       t5_display = t5.copy()
