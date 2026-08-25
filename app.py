@@ -15,9 +15,11 @@ st.set_page_config(
 
 st.markdown("""
 <style>
+    /* Fondo General */
     .main { background-color: #0F172A; color: #F8FAFC; font-family: 'Segoe UI', Roboto, sans-serif; }
     .block-container { padding: 1.5rem 2rem 2rem 2rem; }
 
+    /* BARRA LATERAL */
     [data-testid="stSidebar"] { 
         background-color: #1E293B !important; 
         border-right: 1px solid #334155; 
@@ -38,6 +40,7 @@ st.markdown("""
         font-weight: 700 !important;
     }
 
+    /* Header del Dashboard */
     .dashboard-header { 
         background: linear-gradient(90deg, #1E293B 0%, #0F172A 100%); 
         padding: 20px 24px; 
@@ -49,19 +52,31 @@ st.markdown("""
     .header-title { font-size: 26px; font-weight: 800; color: #FFFFFF; margin: 0; }
     .header-subtitle { font-size: 13px; color: #94A3B8; margin-top: 4px; }
 
+    /* Tarjetas KPI Horizontales Superior */
+    .kpi-section-title {
+        font-size: 12px;
+        font-weight: 800;
+        color: #94A3B8;
+        text-transform: uppercase;
+        margin-top: 6px;
+        margin-bottom: 8px;
+        letter-spacing: 0.5px;
+    }
+
     .kpi-card { 
         background-color: #1E293B; 
         border: 1px solid #334155; 
         border-radius: 10px; 
-        padding: 12px 14px; 
+        padding: 14px 16px; 
         text-align: center;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
-        margin-bottom: 10px;
+        margin-bottom: 12px;
     }
     .kpi-title { font-size: 11px; font-weight: 700; color: #94A3B8; text-transform: uppercase; margin-bottom: 4px; }
     .kpi-value { font-size: 24px; font-weight: 800; margin-bottom: 2px; }
     .kpi-subtext { font-size: 10px; color: #64748B; }
 
+    /* Cajas de Gráficos y Tablas */
     .section-box { 
         background-color: #1E293B; 
         border: 1px solid #334155; 
@@ -109,8 +124,9 @@ def process_excel(file):
     t2['P1_P3_DIARIA'] = pd.to_numeric(t2['P1_P3_DIARIA'], errors='coerce')
     t2['MTS2_DIA'] = pd.to_numeric(t2['MTS2_DIA'], errors='coerce')
     
-    # Limpiar filas nulas o vacías
-    t2 = t2.dropna(subset=['DIA', 'P1_P3_DIARIA'])
+    # Separar fila resumen mensual de los días individuales
+    resumen_mensual_row = t2[t2['DIA'].astype(str).str.contains("Total|Mensual|Promedio", case=False, na=False)]
+    t2_dias = t2[~t2['DIA'].astype(str).str.contains("Total|Mensual|Promedio", case=False, na=False)].dropna(subset=['P1_P3_DIARIA'])
 
     # 3. Resto de Tablas
     t3 = df_raw.iloc[:, 11:13].dropna(how='all'); t3.columns = ['MES_GARANTIAS', 'GARANTIAS']
@@ -122,7 +138,7 @@ def process_excel(file):
     t9 = df_raw.iloc[:, 31:33].dropna(how='all'); t9.columns = ['DEFECTO_P3', 'PORC_DEFECTO_P3']
     t10 = df_raw.iloc[:, 34:36].dropna(how='all'); t10.columns = ['AREA_RESPONSABLE', 'PORC_AREA']
 
-    return (t1_meses, total_gen_row, t2, t3, t4, t5, t6, t7, t8, t9, t10)
+    return (t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6, t7, t8, t9, t10)
 
 def fmt_pct(val):
     if pd.isna(val) or val is None:
@@ -179,7 +195,7 @@ with st.sidebar:
             st.rerun()
 
 # -----------------------------------------------------------------------------
-# 4. VISTA PRINCIPAL Y LÓGICA DE CALIDAD
+# 4. DASHBOARD PRINCIPAL
 # -----------------------------------------------------------------------------
 st.markdown("""
 <div class="dashboard-header">
@@ -192,11 +208,11 @@ if not st.session_state.data_loaded:
     st.info("ℹ️ **Por favor, ingresa tu reporte en Excel desde el panel lateral para visualizar el dashboard.**")
     st.stop()
 
-t1_meses, total_gen_row, t2, t3, t4, t5, t6, t7, t8, t9, t10 = st.session_state.tables
+t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6, t7, t8, t9, t10 = st.session_state.tables
 
 if menu == "RESUMEN":
 
-    # A) CALIDAD ANUAL (Total General de la Tabla 1 del Excel)
+    # --- A) CALIDAD ANUAL ---
     if not total_gen_row.empty:
         v_anual_ac = total_gen_row['P1_P3_ANUAL'].values[0]
         v_anual_p1 = total_gen_row['P1_ANUAL'].values[0]
@@ -206,107 +222,123 @@ if menu == "RESUMEN":
         v_anual_p1 = t1_meses['P1_ANUAL'].iloc[-1] if not t1_meses.empty else 0
         v_anual_p3 = t1_meses['P3_ANUAL'].iloc[-1] if not t1_meses.empty else 0
 
-    # B) CALIDAD MENSUAL (Media Ponderada por m² producidos)
-    total_mts2 = t2['MTS2_DIA'].sum() if 'MTS2_DIA' in t2.columns else 0
-    
-    if total_mts2 > 0:
-        v_mensual_ac = (t2['P1_P3_DIARIA'] * t2['MTS2_DIA']).sum() / total_mts2
-        v_mensual_p1 = (t2['P1_DIARIA'] * t2['MTS2_DIA']).sum() / total_mts2
-        v_mensual_p3 = (t2['P3_DIARIA'] * t2['MTS2_DIA']).sum() / total_mts2
+    # --- B) CALIDAD MENSUAL (Leída directamente de la tabla/fila de resumen acumulado del mes) ---
+    if not resumen_mensual_row.empty:
+        v_mensual_ac = resumen_mensual_row['P1_P3_DIARIA'].values[0]
+        v_mensual_p1 = resumen_mensual_row['P1_DIARIA'].values[0]
+        v_mensual_p3 = resumen_mensual_row['P3_DIARIA'].values[0]
     else:
-        # En caso de no tener m², tomar el promedio directo filtrado
-        v_mensual_ac = t2['P1_P3_DIARIA'].mean() if not t2.empty else 0
-        v_mensual_p1 = t2['P1_DIARIA'].mean() if not t2.empty else 0
-        v_mensual_p3 = t2['P3_DIARIA'].mean() if not t2.empty else 0
+        # Ponderación por m2 si no hay fila explícita
+        total_mts = t2_dias['MTS2_DIA'].sum() if 'MTS2_DIA' in t2_dias.columns and t2_dias['MTS2_DIA'].sum() > 0 else 1
+        v_mensual_ac = (t2_dias['P1_P3_DIARIA'] * t2_dias.get('MTS2_DIA', 1)).sum() / total_mts if not t2_dias.empty else 0
+        v_mensual_p1 = (t2_dias['P1_DIARIA'] * t2_dias.get('MTS2_DIA', 1)).sum() / total_mts if not t2_dias.empty else 0
+        v_mensual_p3 = (t2_dias['P3_DIARIA'] * t2_dias.get('MTS2_DIA', 1)).sum() / total_mts if not t2_dias.empty else 0
 
-    # C) CALIDAD DIARIA (Última fila activa de la Tabla Diaria)
-    if not t2.empty:
-        ult_reg = t2.iloc[-1]
-        v_diaria_ac = ult_reg['P1_P3_DIARIA']
-        v_diaria_p1 = ult_reg['P1_DIARIA']
-        v_diaria_p3 = ult_reg['P3_DIARIA']
-        fecha_ult = str(ult_reg['DIA']).split()[0]
+    # --- C) CALIDAD DIARIA (Tomada de la última fila de registro diario del Excel) ---
+    if not t2_dias.empty:
+        ult_dia = t2_dias.iloc[-1]
+        v_diaria_ac = ult_dia['P1_P3_DIARIA']
+        v_diaria_p1 = ult_dia['P1_DIARIA']
+        v_diaria_p3 = ult_dia['P3_DIARIA']
+        fecha_ult = str(ult_dia['DIA']).split()[0]
     else:
         v_diaria_ac = v_diaria_p1 = v_diaria_p3 = 0
         fecha_ult = "N/A"
 
     # -----------------------------------------------------------------------------
-    # TARJETAS DE MÉTRICAS
+    # PARTE SUPERIOR: TARJETAS KPI ORGANIZADAS POR FILA (ANUAL, MENSUAL, DIARIO)
     # -----------------------------------------------------------------------------
-    col_kpis, col_charts = st.columns([1, 2.3])
-
-    with col_kpis:
-        # --- BLOQUE ACUMULADO / GLOBAL ---
+    st.markdown('<div class="kpi-section-title">📊 Calidad Anual</div>', unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
+    with c1:
         st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Anual Acumulada</div><div class="kpi-value" style="color: #10B981;">{fmt_pct(v_anual_ac)}</div><div class="kpi-subtext">Global P1 & P3</div></div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Mensual Acumulada</div><div class="kpi-value" style="color: #10B981;">{fmt_pct(v_mensual_ac)}</div><div class="kpi-subtext">Ponderada P1 & P3</div></div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Diaria Acumulada</div><div class="kpi-value" style="color: #10B981;">{fmt_pct(v_diaria_ac)}</div><div class="kpi-subtext">Día: {fecha_ult}</div></div>', unsafe_allow_html=True)
-        
-        # --- BLOQUE PLANTA 1 ---
+    with c2:
         st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Anual P1</div><div class="kpi-value" style="color: #3B82F6;">{fmt_pct(v_anual_p1)}</div><div class="kpi-subtext">Planta 1</div></div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Mensual P1</div><div class="kpi-value" style="color: #3B82F6;">{fmt_pct(v_mensual_p1)}</div><div class="kpi-subtext">Planta 1</div></div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Diaria P1</div><div class="kpi-value" style="color: #3B82F6;">{fmt_pct(v_diaria_p1)}</div><div class="kpi-subtext">Día: {fecha_ult} (P1)</div></div>', unsafe_allow_html=True)
-        
-        # --- BLOQUE PLANTA 3 ---
+    with c3:
         st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Anual P3</div><div class="kpi-value" style="color: #F59E0B;">{fmt_pct(v_anual_p3)}</div><div class="kpi-subtext">Planta 3</div></div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="kpi-section-title">📅 Calidad Mensual</div>', unsafe_allow_html=True)
+    m1, m2, m3 = st.columns(3)
+    with m1:
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Mensual Acumulada</div><div class="kpi-value" style="color: #10B981;">{fmt_pct(v_mensual_ac)}</div><div class="kpi-subtext">Global P1 & P3</div></div>', unsafe_allow_html=True)
+    with m2:
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Mensual P1</div><div class="kpi-value" style="color: #3B82F6;">{fmt_pct(v_mensual_p1)}</div><div class="kpi-subtext">Planta 1</div></div>', unsafe_allow_html=True)
+    with m3:
         st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Mensual P3</div><div class="kpi-value" style="color: #F59E0B;">{fmt_pct(v_mensual_p3)}</div><div class="kpi-subtext">Planta 3</div></div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Diaria P3</div><div class="kpi-value" style="color: #F59E0B;">{fmt_pct(v_diaria_p3)}</div><div class="kpi-subtext">Día: {fecha_ult} (P3)</div></div>', unsafe_allow_html=True)
 
-    with col_charts:
-        st.markdown('<div class="section-box"><div class="section-title">EVOLUCIÓN DIARIA DE LA CALIDAD ACUMULADA (%)</div>', unsafe_allow_html=True)
-        if not t2.empty:
-            fig_line = go.Figure()
-            
-            # Convierte porcentajes a escala 0-100 para el eje Y
-            val_y = t2['P1_P3_DIARIA'] * 100 if t2['P1_P3_DIARIA'].max() <= 1.0 else t2['P1_P3_DIARIA']
+    st.markdown('<div class="kpi-section-title">⏱️ Calidad Diaria (Último Día: ' + fecha_ult + ')</div>', unsafe_allow_html=True)
+    d1, d2, d3 = st.columns(3)
+    with d1:
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Diaria Acumulada</div><div class="kpi-value" style="color: #10B981;">{fmt_pct(v_diaria_ac)}</div><div class="kpi-subtext">Global Día P1 & P3</div></div>', unsafe_allow_html=True)
+    with d2:
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Diaria P1</div><div class="kpi-value" style="color: #3B82F6;">{fmt_pct(v_diaria_p1)}</div><div class="kpi-subtext">Día P1</div></div>', unsafe_allow_html=True)
+    with d3:
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Diaria P3</div><div class="kpi-value" style="color: #F59E0B;">{fmt_pct(v_diaria_p3)}</div><div class="kpi-subtext">Día P3</div></div>', unsafe_allow_html=True)
 
-            # 1. Calidad Diaria Acumulada
-            fig_line.add_trace(go.Scatter(
-                x=t2['DIA'], 
-                y=val_y, 
-                mode='lines+markers', 
-                name='Calidad Diaria Acumulada', 
-                line=dict(color='#10B981', width=3)
-            ))
+    st.markdown("---")
 
-            # 2. Línea de Meta en 94.50%
-            fig_line.add_trace(go.Scatter(
-                x=t2['DIA'], 
-                y=[94.50] * len(t2), 
-                mode='lines', 
-                name='Meta (94.50%)', 
-                line=dict(color='#EF4444', width=2, dash='dash')
-            ))
+    # -----------------------------------------------------------------------------
+    # SECCIÓN DE GRÁFICOS
+    # -----------------------------------------------------------------------------
+    st.markdown('<div class="section-box"><div class="section-title">EVOLUCIÓN DIARIA DE LA CALIDAD ACUMULADA (%)</div>', unsafe_allow_html=True)
+    if not t2_dias.empty:
+        fig_line = go.Figure()
+        
+        y_values = t2_dias['P1_P3_DIARIA'] * 100 if t2_dias['P1_P3_DIARIA'].max() <= 1.0 else t2_dias['P1_P3_DIARIA']
 
-            fig_line.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)', 
-                plot_bgcolor='rgba(0,0,0,0)', 
-                font=dict(color='#94A3B8'), 
-                margin=dict(l=10, r=10, t=10, b=10), 
-                xaxis=dict(showgrid=True, gridcolor='#334155', title="Día"), 
-                yaxis=dict(showgrid=True, gridcolor='#334155', title="% Calidad", tickformat=".2f"), 
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-            )
-            st.plotly_chart(fig_line, use_container_width=True)
+        # 1. Línea de Calidad Diaria con ETIQUETAS DE DATOS
+        fig_line.add_trace(go.Scatter(
+            x=t2_dias['DIA'], 
+            y=y_values, 
+            mode='lines+markers+text', 
+            name='Calidad Diaria Acumulada', 
+            text=[f"{v:.2f}%" for v in y_values],
+            textposition='top center',
+            textfont=dict(color='#F8FAFC', size=10),
+            line=dict(color='#10B981', width=3),
+            marker=dict(size=7)
+        ))
+
+        # 2. Línea de Meta (94.50%)
+        fig_line.add_trace(go.Scatter(
+            x=t2_dias['DIA'], 
+            y=[94.50] * len(t2_dias), 
+            mode='lines', 
+            name='Meta (94.50%)', 
+            line=dict(color='#EF4444', width=2, dash='dash')
+        ))
+
+        fig_line.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)', 
+            plot_bgcolor='rgba(0,0,0,0)', 
+            font=dict(color='#94A3B8'), 
+            margin=dict(l=10, r=10, t=30, b=10), 
+            xaxis=dict(showgrid=True, gridcolor='#334155', title="Día"), 
+            yaxis=dict(showgrid=True, gridcolor='#334155', title="% Calidad", tickformat=".2f", range=[min(y_values.min() - 2, 75), 102]), 
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        st.plotly_chart(fig_line, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Pareto y Distribución por área abajo
+    col_sub1, col_sub2 = st.columns(2)
+    with col_sub1:
+        st.markdown('<div class="section-box"><div class="section-title">PARETO DE DEFECTOS</div>', unsafe_allow_html=True)
+        df_def = t8.rename(columns={'DEFECTO_P1': 'DEFECTO', 'PORC_DEFECTO_P1': 'PORC_DEFECTO'}) if planta_sel == "Planta 1 (P1)" else (t9.rename(columns={'DEFECTO_P3': 'DEFECTO', 'PORC_DEFECTO_P3': 'PORC_DEFECTO'}) if planta_sel == "Planta 3 (P3)" else t7)
+        if not df_def.empty:
+            df_def = df_def.sort_values(by='PORC_DEFECTO', ascending=True)
+            fig_def = px.bar(df_def, x='PORC_DEFECTO', y='DEFECTO', orientation='h', text=df_def['PORC_DEFECTO'].apply(lambda x: fmt_pct(x)), color_discrete_sequence=['#3B82F6'])
+            fig_def.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#94A3B8'), margin=dict(l=10, r=10, t=10, b=10), xaxis=dict(showgrid=False, visible=False), yaxis=dict(showgrid=False))
+            st.plotly_chart(fig_def, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-        col_sub1, col_sub2 = st.columns(2)
-        with col_sub1:
-            st.markdown('<div class="section-box"><div class="section-title">PARETO DE DEFECTOS</div>', unsafe_allow_html=True)
-            df_def = t8.rename(columns={'DEFECTO_P1': 'DEFECTO', 'PORC_DEFECTO_P1': 'PORC_DEFECTO'}) if planta_sel == "Planta 1 (P1)" else (t9.rename(columns={'DEFECTO_P3': 'DEFECTO', 'PORC_DEFECTO_P3': 'PORC_DEFECTO'}) if planta_sel == "Planta 3 (P3)" else t7)
-            if not df_def.empty:
-                df_def = df_def.sort_values(by='PORC_DEFECTO', ascending=True)
-                fig_def = px.bar(df_def, x='PORC_DEFECTO', y='DEFECTO', orientation='h', text=df_def['PORC_DEFECTO'].apply(lambda x: fmt_pct(x)), color_discrete_sequence=['#3B82F6'])
-                fig_def.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#94A3B8'), margin=dict(l=10, r=10, t=10, b=10), xaxis=dict(showgrid=False, visible=False), yaxis=dict(showgrid=False))
-                st.plotly_chart(fig_def, use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        with col_sub2:
-            st.markdown('<div class="section-box"><div class="section-title">DISTRIBUCIÓN POR ÁREA</div>', unsafe_allow_html=True)
-            if not t10.empty:
-                fig_donut = px.pie(t10, names='AREA_RESPONSABLE', values='PORC_AREA', hole=0.5, color_discrete_sequence=px.colors.qualitative.Set3)
-                fig_donut.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#94A3B8'), margin=dict(l=5, r=5, t=5, b=5), legend=dict(orientation="h", yanchor="bottom", y=-0.3))
-                st.plotly_chart(fig_donut, use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+    with col_sub2:
+        st.markdown('<div class="section-box"><div class="section-title">DISTRIBUCIÓN POR ÁREA</div>', unsafe_allow_html=True)
+        if not t10.empty:
+            fig_donut = px.pie(t10, names='AREA_RESPONSABLE', values='PORC_AREA', hole=0.5, color_discrete_sequence=px.colors.qualitative.Set3)
+            fig_donut.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#94A3B8'), margin=dict(l=5, r=5, t=5, b=5), legend=dict(orientation="h", yanchor="bottom", y=-0.3))
+            st.plotly_chart(fig_donut, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # OTRAS VISTAS
