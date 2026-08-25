@@ -460,8 +460,8 @@ if menu == "CALIDAD":
 elif menu == "DEFECTIVOS":
     st.markdown('<div class="kpi-section-title">📉 Análisis de Defectos y Áreas Responsables</div>', unsafe_allow_html=True)
     
-    # 1. PARETO DE DEFECTOS (VERTICAL Y LEGIBLE)
-    st.markdown('<div class="section-box"><div class="section-title">PARETO DE DEFECTOS</div>', unsafe_allow_html=True)
+    # 1. PARETO DE DEFECTOS GENERAL
+    st.markdown('<div class="section-box"><div class="section-title">PARETO DE DEFECTOS GENERAL</div>', unsafe_allow_html=True)
     
     if planta_sel == "Planta 1 (P1)":
         df_def = t8.rename(columns={'DEFECTO_P1': 'DEFECTO', 'PORC_DEFECTO_P1': 'PORC_DEFECTO'}).copy()
@@ -471,40 +471,40 @@ elif menu == "DEFECTIVOS":
         df_def = t7.copy()
         
     if not df_def.empty:
-        df_def = df_def.dropna(subset=['DEFECTO', 'PORC_DEFECTO'])
-        df_def = df_def.sort_values(by='PORC_DEFECTO', ascending=False)
+        df_def = df_def.dropna(subset=['DEFECTO', 'PORC_DEFECTO']).copy()
+        df_def['VAL_PCT'] = df_def['PORC_DEFECTO'].apply(lambda x: x * 100 if x <= 1.0 else x)
+        df_def = df_def.sort_values(by='VAL_PCT', ascending=False)
         
         fig_def = px.bar(
             df_def, 
             x='DEFECTO', 
-            y='PORC_DEFECTO', 
-            text=df_def['PORC_DEFECTO'].apply(lambda x: fmt_pct(x)), 
+            y='VAL_PCT', 
+            text=df_def['VAL_PCT'].apply(lambda x: f"{x:.2f}%"), 
             color_discrete_sequence=['#3B82F6']
         )
         fig_def.update_traces(
             textposition='outside',
-            textfont=dict(color='#F8FAFC', size=13, family="sans-serif")
+            textfont=dict(color='#F8FAFC', size=12, family="sans-serif")
         )
         
-        # Margen superior amplio (t=60) y rango extendido para evitar corte de texto
-        max_val = df_def['PORC_DEFECTO'].max() if not df_def.empty else 1.0
+        max_val = df_def['VAL_PCT'].max() if not df_def.empty else 100.0
         fig_def.update_layout(
-            height=480,
+            height=420,
             paper_bgcolor='rgba(0,0,0,0)', 
             plot_bgcolor='rgba(0,0,0,0)', 
             font_color='#94A3B8', 
-            margin=dict(l=10, r=10, t=60, b=10)
+            margin=dict(l=10, r=10, t=50, b=10)
         )
         fig_def.update_xaxes(showgrid=False, tickangle=-45, tickfont=dict(color='#E2E8F0', size=11))
         fig_def.update_yaxes(showgrid=False, visible=False, range=[0, max_val * 1.25])
         st.plotly_chart(fig_def, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # 2. TARJETAS KPI ILUSTRADAS (ESTILO CUADRÍCULA 4 COLUMNAS)
+    # 2. TARJETAS KPI ILUSTRADAS (ESTILO LINEAL INDUSTRIAL)
     st.markdown('<div class="section-box"><div class="section-title">DISTRIBUCIÓN POR ÁREA RESPONSABLE</div>', unsafe_allow_html=True)
     
     ICONOS_AREAS = {
-        "LÍNEAS DE ESMALTADO": "🎨",
+        "LÍNEAS DE ESMALTADO": "🚿",
         "RECTIFICADO": "📐",
         "SELECCIÓN & EMPAQUE": "📦",
         "SELECCION & EMPAQUE": "📦",
@@ -514,7 +514,7 @@ elif menu == "DEFECTIVOS":
         "PREPARACIÓN DE ESMALTES": "🧪",
         "HORNOS": "🔥",
         "TMA": "⚙️",
-        "PRENSAS": "🧱",
+        "PRENSAS": "🗜️",
         "PULIDO": "✨",
         "CARACTERÍSTICAS DEL PRODUCTO": "🔍",
         "CARACTERISTICAS DEL PRODUCTO": "🔍"
@@ -522,18 +522,16 @@ elif menu == "DEFECTIVOS":
 
     if not t10.empty:
         df_area = t10.dropna(subset=['AREA_RESPONSABLE', 'PORC_AREA']).copy()
-        df_area = df_area[df_area['PORC_AREA'] > 0].sort_values(by='PORC_AREA', ascending=False)
+        df_area['VAL_PCT'] = df_area['PORC_AREA'].apply(lambda x: x * 100 if x <= 1.0 else x)
+        df_area = df_area[df_area['VAL_PCT'] > 0].sort_values(by='VAL_PCT', ascending=False)
         
-        # Grid de 4 columnas
         cols = st.columns(4)
         for idx, (_, row) in enumerate(df_area.iterrows()):
             area_name = str(row['AREA_RESPONSABLE']).strip().upper()
-            val_raw = row['PORC_AREA']
-            val_pct = fmt_pct(val_raw)
+            val_num = row['VAL_PCT']
+            val_pct = f"{val_num:.2f}%"
             icon = ICONOS_AREAS.get(area_name, "🏭")
             
-            # Semáforo de color según el porcentaje de defecto del área
-            val_num = val_raw * 100 if val_raw <= 1.0 else val_raw
             if val_num < 5.0:
                 dot_class = "dot-green"
                 text_color = "#15803D"
@@ -549,7 +547,7 @@ elif menu == "DEFECTIVOS":
                 st.markdown(f"""
                 <div class="grid-kpi-card">
                     <div class="grid-kpi-title">{area_name}</div>
-                    <div class="grid-kpi-icon">{icon}</div>
+                    <div class="grid-kpi-icon" style="filter: grayscale(100%); opacity: 0.85;">{icon}</div>
                     <div class="grid-kpi-footer">
                         <span class="{dot_class}">●</span>
                         <span class="grid-kpi-val" style="color: {text_color};">{val_pct}</span>
@@ -559,15 +557,64 @@ elif menu == "DEFECTIVOS":
                 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # 3. TABLAS DE DETALLE
-    st.markdown('<div class="section-box"><div class="section-title">DETALLE DE TABLAS DE DEFECTOS</div>', unsafe_allow_html=True)
+    # 3. DETALLE DE PARETOS P1 Y P3 (GRÁFICAS EN LUGAR DE TABLAS)
+    st.markdown('<div class="section-box"><div class="section-title">ANÁLISIS COMPARATIVO DE DEFECTOS: PLANTA 1 VS PLANTA 3</div>', unsafe_allow_html=True)
     c_a, c_b = st.columns(2)
+    
     with c_a:
-        st.subheader("Defectos Planta 1 (P1)")
-        st.dataframe(t8, use_container_width=True)
+        st.subheader("Pareto Defectos Planta 1 (P1)")
+        if not t8.empty:
+            df_p1 = t8.dropna(subset=['DEFECTO_P1', 'PORC_DEFECTO_P1']).copy()
+            df_p1['VAL_PCT'] = df_p1['PORC_DEFECTO_P1'].apply(lambda x: x * 100 if x <= 1.0 else x)
+            df_p1 = df_p1.sort_values(by='VAL_PCT', ascending=False)
+            
+            fig_p1 = px.bar(
+                df_p1, 
+                x='DEFECTO_P1', 
+                y='VAL_PCT', 
+                text=df_p1['VAL_PCT'].apply(lambda x: f"{x:.2f}%"),
+                color_discrete_sequence=['#60A5FA']
+            )
+            fig_p1.update_traces(textposition='outside', textfont=dict(color='#F8FAFC', size=11))
+            max_p1 = df_p1['VAL_PCT'].max() if not df_p1.empty else 100.0
+            fig_p1.update_layout(
+                height=400, 
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)', 
+                font_color='#94A3B8',
+                margin=dict(l=5, r=5, t=40, b=10)
+            )
+            fig_p1.update_xaxes(showgrid=False, tickangle=-45, tickfont=dict(color='#E2E8F0', size=10), title=None)
+            fig_p1.update_yaxes(showgrid=False, visible=False, range=[0, max_p1 * 1.3])
+            st.plotly_chart(fig_p1, use_container_width=True)
+
     with c_b:
-        st.subheader("Defectos Planta 3 (P3)")
-        st.dataframe(t9, use_container_width=True)
+        st.subheader("Pareto Defectos Planta 3 (P3)")
+        if not t9.empty:
+            df_p3 = t9.dropna(subset=['DEFECTO_P3', 'PORC_DEFECTO_P3']).copy()
+            df_p3['VAL_PCT'] = df_p3['PORC_DEFECTO_P3'].apply(lambda x: x * 100 if x <= 1.0 else x)
+            df_p3 = df_p3.sort_values(by='VAL_PCT', ascending=False)
+            
+            fig_p3 = px.bar(
+                df_p3, 
+                x='DEFECTO_P3', 
+                y='VAL_PCT', 
+                text=df_p3['VAL_PCT'].apply(lambda x: f"{x:.2f}%"),
+                color_discrete_sequence=['#F59E0B']
+            )
+            fig_p3.update_traces(textposition='outside', textfont=dict(color='#F8FAFC', size=11))
+            max_p3 = df_p3['VAL_PCT'].max() if not df_p3.empty else 100.0
+            fig_p3.update_layout(
+                height=400, 
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)', 
+                font_color='#94A3B8',
+                margin=dict(l=5, r=5, t=40, b=10)
+            )
+            fig_p3.update_xaxes(showgrid=False, tickangle=-45, tickfont=dict(color='#E2E8F0', size=10), title=None)
+            fig_p3.update_yaxes(showgrid=False, visible=False, range=[0, max_p3 * 1.3])
+            st.plotly_chart(fig_p3, use_container_width=True)
+            
     st.markdown('</div>', unsafe_allow_html=True)
 
 # =============================================================================
