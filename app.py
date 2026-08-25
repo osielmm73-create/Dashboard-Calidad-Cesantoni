@@ -349,7 +349,7 @@ if menu == "CALIDAD":
             secondary_y=False
         )
 
-        # Agregar etiquetas de texto con rotación exacta a -90 grados mediante anotaciones de Plotly
+        # Agregar etiquetas de texto a 18pt por encima de los puntos sin encimarse
         for x_val, y_val in zip(t2_dias['DIA_STR'], y_calidad):
             if pd.notna(y_val):
                 fig_mix.add_annotation(
@@ -358,8 +358,8 @@ if menu == "CALIDAD":
                     text=f"<b>{y_val:.2f}%</b>",
                     showarrow=False,
                     textangle=-90,
-                    yshift=25,
-                    font=dict(color="#000000", size=14, family="sans-serif"),
+                    yshift=40,  # Posiciona la etiqueta por encima del punto
+                    font=dict(color="#000000", size=18, family="sans-serif"),  # Tamaño a 18pt
                     yref="y"
                 )
 
@@ -380,7 +380,7 @@ if menu == "CALIDAD":
         max_mts2 = float(y_mts2.max()) if not y_mts2.empty and pd.notna(y_mts2.max()) else 20000.0
 
         fig_mix.update_layout(
-            height=600,
+            height=650,
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             font_color="#94A3B8",
@@ -395,16 +395,16 @@ if menu == "CALIDAD":
             title_text="Días del Mes"
         )
 
-        # Eje Y principal (% Calidad) con margen amplio hacia arriba para el texto vertical
+        # Eje Y principal (% Calidad)
         fig_mix.update_yaxes(
             title_text="% Calidad",
             showgrid=False,
             tickformat=".1f",
-            range=[y_min_bound, 115.0],
+            range=[y_min_bound, 118.0],
             secondary_y=False
         )
 
-        # Eje Y secundario (Metros Cuadrados) empujado más abajo (factor 3.2)
+        # Eje Y secundario (Metros Cuadrados)
         fig_mix.update_yaxes(
             title_text="Metros Cuadrados (m²)",
             showgrid=False,
