@@ -416,13 +416,13 @@ if menu == "CALIDAD":
         
         h1, h2, h3, h4_col = st.columns(4)
         with h1:
-            st.markdown(f'<div class="kpi-card"><div class="kpi-title">Horno 1 (H1)</div><div class="kpi-value" style="color: #3B82F6;">{fmt_pct(v_h1)}</div><div class="kpi-subtext">Columna AM</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="kpi-card"><div class="kpi-title">Horno 1 (H1)</div><div class="kpi-value" style="color: #3B82F6;">{fmt_pct(v_h1)}</div><div class="kpi-subtext"></div></div>', unsafe_allow_html=True)
         with h2:
-            st.markdown(f'<div class="kpi-card"><div class="kpi-title">Horno 4 (H4)</div><div class="kpi-value" style="color: #F59E0B;">{fmt_pct(v_h4)}</div><div class="kpi-subtext">Columna AN</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="kpi-card"><div class="kpi-title">Horno 4 (H4)</div><div class="kpi-value" style="color: #F59E0B;">{fmt_pct(v_h4)}</div><div class="kpi-subtext"></div></div>', unsafe_allow_html=True)
         with h3:
-            st.markdown(f'<div class="kpi-card"><div class="kpi-title">Horno 5 (H5)</div><div class="kpi-value" style="color: #10B981;">{fmt_pct(v_h5)}</div><div class="kpi-subtext">Columna AO</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="kpi-card"><div class="kpi-title">Horno 5 (H5)</div><div class="kpi-value" style="color: #10B981;">{fmt_pct(v_h5)}</div><div class="kpi-subtext"></div></div>', unsafe_allow_html=True)
         with h4_col:
-            st.markdown(f'<div class="kpi-card"><div class="kpi-title">Horno 6 (H6)</div><div class="kpi-value" style="color: #EC4899;">{fmt_pct(v_h6)}</div><div class="kpi-subtext">Columna AP</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="kpi-card"><div class="kpi-title">Horno 6 (H6)</div><div class="kpi-value" style="color: #EC4899;">{fmt_pct(v_h6)}</div><div class="kpi-subtext"></div></div>', unsafe_allow_html=True)
 
     st.markdown("---")
 
