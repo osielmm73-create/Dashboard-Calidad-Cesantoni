@@ -110,6 +110,10 @@ st.markdown("""
         font-size: 34px;
         margin: 6px 0;
         line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 48px;
     }
     .grid-kpi-footer {
         display: flex;
@@ -500,18 +504,57 @@ elif menu == "DEFECTIVOS":
         st.plotly_chart(fig_def, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # 2. TARJETAS KPI ILUSTRADAS A COLOR (ESTILO INDUSTRIA CERÁMICA)
+    # 2. TARJETAS KPI ILUSTRADAS A COLOR (ESTILO INDUSTRIA CERÁMICA - SVG VECTORIAL DE ALTA DEFINICIÓN)
     st.markdown('<div class="section-box"><div class="section-title">DISTRIBUCIÓN POR ÁREA RESPONSABLE</div>', unsafe_allow_html=True)
     
+    # SVG vectorial ultra nítido para PRENSAS (Prensa hidráulica industrial idéntica a la imagen muestra)
+    SVG_PRENSAS = """
+    <svg width="44" height="44" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Vástago superior de presión -->
+        <rect x="27" y="4" width="10" height="16" rx="2" fill="#475569"/>
+        <rect x="29" y="4" width="6" height="16" rx="1" fill="#64748B"/>
+        <!-- Placa móvil superior de prensado -->
+        <path d="M16 20 C16 18, 48 18, 48 20 L48 26 C48 28, 16 28, 16 26 Z" fill="#334155"/>
+        <rect x="18" y="21" width="28" height="4" rx="1" fill="#475569"/>
+        <!-- Bloque molde cerámico / Azulejo prensado -->
+        <rect x="22" y="28" width="20" height="6" rx="1" fill="#CBD5E1" stroke="#94A3B8" stroke-width="1"/>
+        <!-- Mesa de prensado / Base inferior -->
+        <rect x="10" y="34" width="44" height="14" rx="3" fill="#1E293B"/>
+        <rect x="12" y="36" width="40" height="4" fill="#334155"/>
+        <!-- Soportes base -->
+        <rect x="14" y="48" width="8" height="4" fill="#0F172A"/>
+        <rect x="42" y="48" width="8" height="4" fill="#0F172A"/>
+    </svg>
+    """
+
+    # SVG vectorial a color para LÍNEAS DE ESMALTADO (Nave industrial / Tanque de esmaltado a color)
+    SVG_ESMALTADO = """
+    <svg width="44" height="44" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Chimeneas rojas -->
+        <rect x="16" y="8" width="6" height="20" rx="1" fill="#EF4444"/>
+        <rect x="26" y="14" width="6" height="14" rx="1" fill="#EF4444"/>
+        <path d="M14 8 H24 V11 H14 Z" fill="#B91C1C"/>
+        <path d="M24 14 H34 V17 H24 Z" fill="#B91C1C"/>
+        <!-- Edificio industrial -->
+        <path d="M8 28 L24 20 L40 28 V52 H8 Z" fill="#94A3B8"/>
+        <path d="M40 28 L56 34 V52 H40 Z" fill="#64748B"/>
+        <!-- Puertas / Ventanas -->
+        <rect x="14" y="36" width="10" height="16" rx="1" fill="#38BDF8"/>
+        <rect x="30" y="36" width="6" height="6" rx="1" fill="#F1F5F9"/>
+        <rect x="44" y="40" width="8" height="12" rx="1" fill="#334155"/>
+    </svg>
+    """
+
     ICONOS_AREAS = {
-        "LINEAS DE ESMALTADO": "🏭",
-        "LÍNEAS DE ESMALTADO": "🏭",
+        "LINEAS DE ESMALTADO": SVG_ESMALTADO,
+        "LÍNEAS DE ESMALTADO": SVG_ESMALTADO,
         "HORNOS": "🔥",
         "RECTIFICADO": "📐",
         "TMA": "⚙️",
         "SELECCIÓN & EMPAQUE": "📦",
         "SELECCION & EMPAQUE": "📦",
-        "PRENSAS": "🗜️",
+        "PRENSAS": SVG_PRENSAS,
+        "PRENSADO": SVG_PRENSAS,
         "MTTO": "🛠️",
         "MANTENIMIENTO": "🛠️",
         "PULIDO": "✨",
