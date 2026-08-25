@@ -13,7 +13,7 @@ DATA_FILE_PATH = "data_cache.xlsx"
 # 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS CSS
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Calidad Producto Terminado",
+    page_title="Calidad Producto Terminado P1&P3",
     page_icon="🟩",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -270,8 +270,8 @@ if "stored_file" in st.session_state and not st.session_state.get("data_loaded",
 # 3. PANEL LATERAL DE NAVEGACIÓN
 # -----------------------------------------------------------------------------
 with st.sidebar:
-    st.markdown("## 🟩 **SISTEMA DE CALIDAD**")
-    st.caption("PISO CERÁMICO P1 & P3")
+    st.markdown("## 🟩 **CALIDAD**")
+    st.caption("CESANTONI PORCELANATO PREMIUM")
     st.markdown("---")
     
     menu = st.radio("NAVEGACIÓN", ["CALIDAD", "DEFECTIVOS", "TONOS", "GARANTÍAS"])
@@ -325,7 +325,8 @@ with st.sidebar:
 # -----------------------------------------------------------------------------
 # 4. DASHBOARD PRINCIPAL - ENCABEZADO CON LOGO Y TÍTULOS
 # -----------------------------------------------------------------------------
-header_col1, header_col2 = st.columns([1, 6], vertical_alignment="center")
+# Se amplía la primera columna de 1 a 1.5 para aumentar el tamaño visual del logo (+50%)
+header_col1, header_col2 = st.columns([1.5, 6], vertical_alignment="center")
 
 with header_col1:
     if os.path.exists("logo_cesantoni.png"):
@@ -336,7 +337,7 @@ with header_col1:
 with header_col2:
     st.markdown("""
     <div class="dashboard-header">
-        <div class="header-title">Calidad Producto Terminado</div>
+        <div class="header-title">Calidad Producto Terminado P1&P3</div>
         <div class="header-subtitle">Todos somos calidad | CESANTONI SA de CV</div>
     </div>
     """, unsafe_allow_html=True)
