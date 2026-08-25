@@ -69,14 +69,14 @@ st.markdown("""
         background-color: #1E293B; 
         border: 1px solid #334155; 
         border-radius: 10px; 
-        padding: 14px 16px; 
+        padding: 18px 16px; 
         text-align: center;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
         margin-bottom: 12px;
     }
-    .kpi-title { font-size: 11px; font-weight: 700; color: #94A3B8; text-transform: uppercase; margin-bottom: 4px; }
-    .kpi-value { font-size: 24px; font-weight: 800; margin-bottom: 2px; }
-    .kpi-subtext { font-size: 10px; color: #64748B; }
+    .kpi-title { font-size: 12px; font-weight: 700; color: #94A3B8; text-transform: uppercase; margin-bottom: 6px; }
+    .kpi-value { font-size: 28px; font-weight: 800; margin-bottom: 2px; }
+    .kpi-subtext { font-size: 11px; color: #64748B; }
 
     /* Cajas de Gráficos y Tablas */
     .section-box { 
@@ -129,6 +129,13 @@ st.markdown("""
     .dot-green { color: #22C55E; font-size: 14px; }
     .dot-yellow { color: #F59E0B; font-size: 14px; }
     .dot-red { color: #EF4444; font-size: 14px; }
+
+    /* Estilo de Tablas Integradas */
+    div[data-testid="stDataFrame"] {
+        background-color: #0F172A;
+        border-radius: 8px;
+        border: 1px solid #334155;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -169,9 +176,25 @@ def process_excel(file_source):
 
     # 3. Otras Tablas
     t3 = df_raw.iloc[:, 11:13].dropna(how='all'); t3.columns = ['MES_GARANTIAS', 'GARANTIAS']
-    t4 = df_raw.iloc[:, 14:16].dropna(how='all'); t4.columns = ['MODELO_PRUEBA', 'HORNO_PRUEBAS']
-    t5 = df_raw.iloc[:, 17:19].dropna(how='all'); t5.columns = ['MODELOS_AUTORIZADOS', 'HORNO_AUTORIZADOS']
-    t6 = df_raw.iloc[:, 20:24].dropna(how='all'); t6.columns = ['FECHA', 'CUMP_P1', 'CUMP_P3', 'CUMP_ACUMULADO']
+    
+    # Tabla 4: Modelos de Prueba en Horno (Cols O:P)
+    t4 = df_raw.iloc[:, 14:16].dropna(how='all')
+    t4.columns = ['MODELO_PRUEBA', 'HORNO_PRUEBAS']
+    t4 = t4.dropna(subset=['MODELO_PRUEBA'])
+
+    # Tabla 5: Modelos Autorizados (Cols R:S)
+    t5 = df_raw.iloc[:, 17:19].dropna(how='all')
+    t5.columns = ['MODELOS_AUTORIZADOS', 'HORNO_AUTORIZADOS']
+    t5 = t5.dropna(subset=['MODELOS_AUTORIZADOS'])
+
+    # Tabla 6: Cumplimiento de Tono (Cols U:X)
+    t6 = df_raw.iloc[:, 20:24].dropna(how='all')
+    t6.columns = ['FECHA', 'CUMP_P1', 'CUMP_P3', 'CUMP_ACUMULADO']
+    t6['CUMP_P1'] = pd.to_numeric(t6['CUMP_P1'], errors='coerce')
+    t6['CUMP_P3'] = pd.to_numeric(t6['CUMP_P3'], errors='coerce')
+    t6['CUMP_ACUMULADO'] = pd.to_numeric(t6['CUMP_ACUMULADO'], errors='coerce')
+    t6_clean = t6.dropna(subset=['FECHA']).copy()
+
     t7 = df_raw.iloc[:, 25:27].dropna(how='all'); t7.columns = ['DEFECTO', 'PORC_DEFECTO']
     t8 = df_raw.iloc[:, 28:30].dropna(how='all'); t8.columns = ['DEFECTO_P1', 'PORC_DEFECTO_P1']
     t9 = df_raw.iloc[:, 31:33].dropna(how='all'); t9.columns = ['DEFECTO_P3', 'PORC_DEFECTO_P3']
@@ -186,7 +209,7 @@ def process_excel(file_source):
     t11['H6'] = pd.to_numeric(t11['H6'], errors='coerce')
     t11_clean = t11.dropna(subset=['H1', 'H4', 'H5', 'H6'], how='all')
 
-    return (t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6, t7, t8, t9, t10, t11_clean)
+    return (t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6_clean, t7, t8, t9, t10, t11_clean)
 
 @st.cache_data(show_spinner=False)
 def load_and_process(file_bytes):
@@ -685,34 +708,78 @@ elif menu == "DEFECTIVOS":
 elif menu == "TONOS":
     st.markdown('<div class="kpi-section-title">🎨 Cumplimiento y Control de Tonos</div>', unsafe_allow_html=True)
     
-    st.markdown('<div class="section-box"><div class="section-title">CUMPLIMIENTO DE TONO EN PRODUCCIÓN (%)</div>', unsafe_allow_html=True)
+    # Obtener valores del último registro disponible
     if not t6.empty:
-        fig_tono = px.bar(
-            t6, 
-            x='FECHA', 
-            y=['CUMP_P1', 'CUMP_P3', 'CUMP_ACUMULADO'], 
-            barmode='group', 
-            color_discrete_sequence=['#3B82F6', '#F59E0B', '#10B981']
-        )
-        fig_tono.update_layout(
-            height=480,
-            paper_bgcolor='rgba(0,0,0,0)', 
-            plot_bgcolor='rgba(0,0,0,0)', 
-            font_color='#94A3B8'
-        )
-        fig_tono.update_xaxes(showgrid=False)
-        fig_tono.update_yaxes(showgrid=True, gridcolor='#334155')
-        st.plotly_chart(fig_tono, use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+        ult_row = t6.iloc[-1]
+        v_cump_p1 = ult_row['CUMP_P1']
+        v_cump_p3 = ult_row['CUMP_P3']
+        v_cump_acum = ult_row['CUMP_ACUMULADO']
+        fecha_val = str(ult_row['FECHA']).split()[0]
+    else:
+        v_cump_p1 = v_cump_p3 = v_cump_acum = 0
+        fecha_val = "N/A"
 
+    # Tarjetas KPI de Cumplimiento de Tono
+    k1, k2, k3 = st.columns(3)
+    with k1:
+        st.markdown(f'''
+        <div class="kpi-card">
+            <div class="kpi-title">CUMP_P1</div>
+            <div class="kpi-value" style="color: #3B82F6;">{fmt_pct(v_cump_p1)}</div>
+            <div class="kpi-subtext">Planta 1 ({fecha_val})</div>
+        </div>
+        ''', unsafe_allow_html=True)
+    with k2:
+        st.markdown(f'''
+        <div class="kpi-card">
+            <div class="kpi-title">CUMP_P3</div>
+            <div class="kpi-value" style="color: #F59E0B;">{fmt_pct(v_cump_p3)}</div>
+            <div class="kpi-subtext">Planta 3 ({fecha_val})</div>
+        </div>
+        ''', unsafe_allow_html=True)
+    with k3:
+        st.markdown(f'''
+        <div class="kpi-card">
+            <div class="kpi-title">CUMP_ACUMULADO</div>
+            <div class="kpi-value" style="color: #10B981;">{fmt_pct(v_cump_acum)}</div>
+            <div class="kpi-subtext">Global ({fecha_val})</div>
+        </div>
+        ''', unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # Tablas de Modelos en Horno
     col_m1, col_m2 = st.columns(2)
     with col_m1:
-        st.markdown('<div class="section-box"><div class="section-title">MODELOS DE PRUEBA EN HORNO</div>', unsafe_allow_html=True)
-        st.dataframe(t4, use_container_width=True)
+        st.markdown('<div class="section-box"><div class="section-title">🧪 MODELOS DE PRUEBA EN HORNO</div>', unsafe_allow_html=True)
+        if not t4.empty:
+            st.dataframe(
+                t4, 
+                use_container_width=True, 
+                hide_index=True,
+                column_config={
+                    "MODELO_PRUEBA": "Modelo en Prueba",
+                    "HORNO_PRUEBAS": "Horno"
+                }
+            )
+        else:
+            st.caption("No hay registros disponibles de modelos de prueba.")
         st.markdown('</div>', unsafe_allow_html=True)
+
     with col_m2:
-        st.markdown('<div class="section-box"><div class="section-title">MODELOS AUTORIZADOS</div>', unsafe_allow_html=True)
-        st.dataframe(t5, use_container_width=True)
+        st.markdown('<div class="section-box"><div class="section-title">✅ MODELOS AUTORIZADOS</div>', unsafe_allow_html=True)
+        if not t5.empty:
+            st.dataframe(
+                t5, 
+                use_container_width=True, 
+                hide_index=True,
+                column_config={
+                    "MODELOS_AUTORIZADOS": "Modelo Autorizado",
+                    "HORNO_AUTORIZADOS": "Horno"
+                }
+            )
+        else:
+            st.caption("No hay registros disponibles de modelos autorizados.")
         st.markdown('</div>', unsafe_allow_html=True)
 
 # =============================================================================
