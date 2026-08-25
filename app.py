@@ -13,7 +13,7 @@ DATA_FILE_PATH = "data_cache.xlsx"
 # 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS CSS
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Dashboard - Sistema de Calidad",
+    page_title="Calidad Producto Terminado",
     page_icon="🟩",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -56,7 +56,7 @@ st.markdown("""
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
     }
     .header-title { font-size: 26px; font-weight: 800; color: #FFFFFF; margin: 0; }
-    .header-subtitle { font-size: 13px; color: #94A3B8; margin-top: 4px; }
+    .header-subtitle { font-size: 14px; color: #94A3B8; margin-top: 4px; font-weight: 500; }
 
     /* Tarjetas KPI Generales */
     .kpi-section-title {
@@ -323,14 +323,23 @@ with st.sidebar:
             st.rerun()
 
 # -----------------------------------------------------------------------------
-# 4. DASHBOARD PRINCIPAL
+# 4. DASHBOARD PRINCIPAL - ENCABEZADO CON LOGO Y TÍTULOS
 # -----------------------------------------------------------------------------
-st.markdown("""
-<div class="dashboard-header">
-    <div class="header-title">DASHBOARD - SISTEMA DE CALIDAD</div>
-    <div class="header-subtitle">MONITORIZACIÓN Y CONTROL DE PRODUCCIÓN CERÁMICA</div>
-</div>
-""", unsafe_allow_html=True)
+header_col1, header_col2 = st.columns([1, 6], vertical_alignment="center")
+
+with header_col1:
+    if os.path.exists("logo_cesantoni.png"):
+        st.image("logo_cesantoni.png", use_container_width=True)
+    else:
+        st.caption("logo_cesantoni.png no encontrado")
+
+with header_col2:
+    st.markdown("""
+    <div class="dashboard-header">
+        <div class="header-title">Calidad Producto Terminado</div>
+        <div class="header-subtitle">Todos somos calidad | CESANTONI SA de CV</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 if not st.session_state.get("data_loaded", False):
     st.info("ℹ️ **Por favor, ingresa tu reporte en Excel desde el panel lateral para visualizar el dashboard.**")
@@ -786,10 +795,9 @@ elif menu == "TONOS":
 
     st.markdown("---")
 
-    # NUEVA SECCIÓN: LISTA DE TONOS NUEVOS ASIGNADOS (POR HORNO)
+    # SECCIÓN: LISTA DE TONOS NUEVOS ASIGNADOS (POR HORNO)
     st.markdown('<div class="section-box"><div class="section-title">📋 TONOS NUEVOS ASIGNADOS (CLASIFICADOS POR HORNO)</div>', unsafe_allow_html=True)
     if not t12.empty:
-        # Selector de Horno para filtrar
         hornos_disponibles = ["Todos los Hornos"] + sorted(list(t12['HORNO'].astype(str).unique()))
         horno_sel = st.selectbox("Filtrar por Horno:", hornos_disponibles)
         
@@ -851,7 +859,6 @@ elif menu == "TONOS":
 elif menu == "GARANTÍAS":
     st.markdown('<div class="kpi-section-title">🛡️ Reclamaciones y Garantías</div>', unsafe_allow_html=True)
     
-    # 1. Gráfica Ampliada
     st.markdown('<div class="section-box"><div class="section-title">GARANTÍAS RECLAMADAS POR MES</div>', unsafe_allow_html=True)
     if not t3.empty:
         fig_gar = px.bar(
@@ -859,20 +866,20 @@ elif menu == "GARANTÍAS":
             x='MES_GARANTIAS', 
             y='GARANTIAS', 
             text='GARANTIAS', 
-            color_discrete_sequence=['#94A3B8']  # Gris tenue
+            color_discrete_sequence=['#94A3B8']
         )
         
         max_val_gar = t3['GARANTIAS'].max() if not t3.empty else 10.0
         
         fig_gar.update_traces(
             textposition='outside',
-            textfont=dict(color='#000000', size=18, family="sans-serif", weight="bold"),  # Etiqueta de datos 18pt negro
+            textfont=dict(color='#000000', size=18, family="sans-serif", weight="bold"),
             marker_line_color='#64748B',
             marker_line_width=1
         )
         
         fig_gar.update_layout(
-            height=550,  # Gráfica más grande
+            height=550,
             paper_bgcolor='rgba(0,0,0,0)', 
             plot_bgcolor='rgba(0,0,0,0)', 
             font_color='#94A3B8',
@@ -881,7 +888,7 @@ elif menu == "GARANTÍAS":
         
         fig_gar.update_xaxes(
             showgrid=False,
-            tickfont=dict(color='#000000', size=14, family="sans-serif", weight="bold"),  # Texto del eje X en negro
+            tickfont=dict(color='#000000', size=14, family="sans-serif", weight="bold"),
             title=None
         )
         
@@ -896,7 +903,6 @@ elif menu == "GARANTÍAS":
         st.caption("No hay datos de garantías por mes disponibles.")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # 2. Tabla Inferior de Registros Detallados (AY:BD)
     st.markdown('<div class="section-box"><div class="section-title">📋 REGISTRO DETALLADO DE GARANTÍAS CAPTURADAS</div>', unsafe_allow_html=True)
     if not t13.empty:
         st.dataframe(
