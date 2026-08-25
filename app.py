@@ -319,13 +319,13 @@ if menu == "CALIDAD":
 
         fig_mix = make_subplots(specs=[[{"secondary_y": True}]])
 
-        # 1. Columnas m² (Gris muy claro con borde fino para contraste)
+        # 1. Columnas m² (Gris suave con borde fino para contraste)
         fig_mix.add_trace(
             go.Bar(
                 x=t2_dias['DIA_STR'],
                 y=y_mts2,
                 name="m² Producidos",
-                marker_color="#CBD5E1",        # Gris suave más claro
+                marker_color="#CBD5E1",        # Gris claro
                 marker_line_color="#64748B",   # Borde bien definido
                 marker_line_width=1,
                 text=[f"{v:,.2f}" if pd.notna(v) else "0.00" for v in y_mts2],
@@ -336,7 +336,7 @@ if menu == "CALIDAD":
             secondary_y=True
         )
 
-        # 2. Línea Calidad Diaria (%) (Negro sólido)
+        # 2. Línea Calidad Diaria (%) (Negro sólido, tamaño de fuente duplicado a 18pt)
         fig_mix.add_trace(
             go.Scatter(
                 x=t2_dias['DIA_STR'],
@@ -345,7 +345,7 @@ if menu == "CALIDAD":
                 name="Calidad Diaria (%)",
                 text=[f"<b>{v:.2f}%</b>" for v in y_calidad],
                 textposition="top center",    # Etiqueta sobre el punto
-                textfont=dict(color="#000000", size=9, family="sans-serif"),
+                textfont=dict(color="#000000", size=18, family="sans-serif"),  # <-- Aumentado 100% (18pt)
                 line=dict(color="#000000", width=3),
                 marker=dict(size=7, color="#000000", line=dict(color="#FFFFFF", width=1))
             ),
@@ -369,7 +369,7 @@ if menu == "CALIDAD":
         max_mts2 = float(y_mts2.max()) if not y_mts2.empty and pd.notna(y_mts2.max()) else 20000.0
 
         fig_mix.update_layout(
-            height=540,
+            height=560,
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             font_color="#94A3B8",
@@ -384,21 +384,21 @@ if menu == "CALIDAD":
             title_text="Días del Mes"
         )
 
-        # Eje Y principal (% Calidad) ajustado arriba
+        # Eje Y principal (% Calidad) ajustado con holgura para texto más grande
         fig_mix.update_yaxes(
             title_text="% Calidad",
             showgrid=False,
             tickformat=".1f",
-            range=[y_min_bound, 105.0],
+            range=[y_min_bound, 108.0],
             secondary_y=False
         )
 
-        # Eje Y secundario (Metros Cuadrados) empujado abajo para que NO toque la línea superior
+        # Eje Y secundario (Metros Cuadrados)
         fig_mix.update_yaxes(
             title_text="Metros Cuadrados (m²)",
             showgrid=False,
             tickformat=",.2f",
-            range=[0, max_mts2 * 2.2],  # El factor 2.2 comprime la altura de las barras
+            range=[0, max_mts2 * 2.2],
             secondary_y=True
         )
 
