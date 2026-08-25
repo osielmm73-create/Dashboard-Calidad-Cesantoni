@@ -462,7 +462,7 @@ if menu == "CALIDAD":
 elif menu == "DEFECTIVOS":
     st.markdown('<div class="kpi-section-title">📉 Análisis de Defectos y Áreas Responsables</div>', unsafe_allow_html=True)
     
-    # 1. PARETO DE DEFECTOS GENERAL (DISEÑO AZUL AZUL VIBRANTE CON TEXTO CLARO)
+    # 1. PARETO DE DEFECTOS GENERAL (DISEÑO GRIS TENUE CON MARCO INTENSO)
     st.markdown('<div class="section-box"><div class="section-title">PARETO DE DEFECTOS GENERAL</div>', unsafe_allow_html=True)
     
     if planta_sel == "Planta 1 (P1)":
@@ -482,12 +482,12 @@ elif menu == "DEFECTIVOS":
             x='DEFECTO', 
             y='VAL_PCT', 
             text=df_def['VAL_PCT'].apply(lambda x: f"{x:.2f}%"), 
-            color_discrete_sequence=['#3B82F6']
+            color_discrete_sequence=['#64748B']
         )
         fig_def.update_traces(
             textposition='outside',
-            textfont=dict(color='#60A5FA', size=11, family="sans-serif"),
-            marker_line_color='#1D4ED8',
+            textfont=dict(color='#94A3B8', size=11, family="sans-serif"),
+            marker_line_color='#334155',
             marker_line_width=1
         )
         
@@ -591,7 +591,7 @@ elif menu == "DEFECTIVOS":
                 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # 3. DETALLE DE PARETOS P1 Y P3 (COLOR HOMOGÉNEO AZUL CON SUS DATOS RESPECTIVOS DE P1 Y P3)
+    # 3. DETALLE DE PARETOS P1 Y P3 (GRIS TENUE CON MARCO INTENSO)
     st.markdown('<div class="section-box"><div class="section-title">ANÁLISIS COMPARATIVO DE DEFECTOS: PLANTA 1 VS PLANTA 3</div>', unsafe_allow_html=True)
     c_a, c_b = st.columns(2)
     
@@ -607,12 +607,12 @@ elif menu == "DEFECTIVOS":
                 x='DEFECTO_P1', 
                 y='VAL_PCT', 
                 text=df_p1['VAL_PCT'].apply(lambda x: f"{x:.2f}%"),
-                color_discrete_sequence=['#3B82F6']
+                color_discrete_sequence=['#64748B']
             )
             fig_p1.update_traces(
                 textposition='outside', 
-                textfont=dict(color='#60A5FA', size=11, family="sans-serif"),
-                marker_line_color='#1D4ED8',
+                textfont=dict(color='#94A3B8', size=11, family="sans-serif"),
+                marker_line_color='#334155',
                 marker_line_width=1
             )
             max_p1 = df_p1['VAL_PCT'].max() if not df_p1.empty else 100.0
@@ -639,12 +639,12 @@ elif menu == "DEFECTIVOS":
                 x='DEFECTO_P3', 
                 y='VAL_PCT', 
                 text=df_p3['VAL_PCT'].apply(lambda x: f"{x:.2f}%"),
-                color_discrete_sequence=['#3B82F6']
+                color_discrete_sequence=['#64748B']
             )
             fig_p3.update_traces(
                 textposition='outside', 
-                textfont=dict(color='#60A5FA', size=11, family="sans-serif"),
-                marker_line_color='#1D4ED8',
+                textfont=dict(color='#94A3B8', size=11, family="sans-serif"),
+                marker_line_color='#334155',
                 marker_line_width=1
             )
             max_p3 = df_p3['VAL_PCT'].max() if not df_p3.empty else 100.0
