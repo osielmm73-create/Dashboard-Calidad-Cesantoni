@@ -86,30 +86,54 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =============================================================================
-# LECTURA DE DATOS
+# MANEJO DE SESIÓN Y CARGA DE DATOS
 # =============================================================================
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "custom_file" not in st.session_state:
+    st.session_state.custom_file = None
+
+st.sidebar.title("🔐 Sesión & Archivo")
+
+if not st.session_state.logged_in:
+    with st.sidebar.expander("Iniciar Sesión"):
+        usuario = st.text_input("Usuario")
+        password = st.text_input("Contraseña", type="password")
+        if st.button("Ingresar"):
+            st.session_state.logged_in = True
+            st.rerun()
+else:
+    st.sidebar.success("Sesión Activa")
+    uploaded_file = st.sidebar.file_uploader("Cargar Excel Personalizado", type=["xlsx", "xls"])
+    if uploaded_file:
+        st.session_state.custom_file = uploaded_file
+    
+    if st.sidebar.button("Restablecer Datos por Defecto"):
+        st.session_state.custom_file = None
+        st.rerun()
+
 @st.cache_data
-def load_data():
-    # Cargar datos desde el archivo Excel
-    excel_file = 'DATOS_DASHBOARD.xlsx'
+def load_data(file_source):
+    excel_obj = pd.ExcelFile(file_source)
+    sheet_names = excel_obj.sheet_names
+    t_dict = {}
     
-    t1 = pd.read_excel(excel_file, sheet_name='T1')
-    t2 = pd.read_excel(excel_file, sheet_name='T2')
-    t3 = pd.read_excel(excel_file, sheet_name='T3')
-    t4 = pd.read_excel(excel_file, sheet_name='T4')
-    t5 = pd.read_excel(excel_file, sheet_name='T5')
-    t6 = pd.read_excel(excel_file, sheet_name='T6')
-    t7 = pd.read_excel(excel_file, sheet_name='T7')
-    t8 = pd.read_excel(excel_file, sheet_name='T8')
-    t9 = pd.read_excel(excel_file, sheet_name='T9')
-    t10 = pd.read_excel(excel_file, sheet_name='T10')
-    
-    return t1, t2, t3, t4, t5, t6, t7, t8, t9, t10
+    for i in range(1, 11):
+        s_name = f'T{i}'
+        if s_name in sheet_names:
+            t_dict[s_name] = pd.read_excel(file_source, sheet_name=s_name)
+        else:
+            t_dict[s_name] = pd.DataFrame()
+            
+    return t_dict['T1'], t_dict['T2'], t_dict['T3'], t_dict['T4'], t_dict['T5'], \
+           t_dict['T6'], t_dict['T7'], t_dict['T8'], t_dict['T9'], t_dict['T10']
 
 try:
-    t1, t2, t3, t4, t5, t6, t7, t8, t9, t10 = load_data()
+    source = st.session_state.custom_file if st.session_state.custom_file else 'DATOS_DASHBOARD.xlsx'
+    t1, t2, t3, t4, t5, t6, t7, t8, t9, t10 = load_data(source)
 except Exception as e:
     st.error(f"Error al cargar los datos: {e}")
+    st.info("Asegúrate de tener el archivo 'DATOS_DASHBOARD.xlsx' en la misma carpeta o inicia sesión para subir uno.")
     st.stop()
 
 # =============================================================================
@@ -133,7 +157,6 @@ if menu == "GENERAL":
     if not t1.empty:
         col1, col2, col3, col4 = st.columns(4)
         
-        # Filtro de planta para T1 si aplica
         df_t1 = t1.copy()
         if planta_sel == "Planta 1 (P1)":
             df_t1 = df_t1[df_t1['PLANTA'] == 'P1'] if 'PLANTA' in df_t1.columns else df_t1
