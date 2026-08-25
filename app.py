@@ -187,14 +187,13 @@ def process_excel(file_source):
     t5.columns = ['MODELOS_AUTORIZADOS', 'HORNO_AUTORIZADOS']
     t5 = t5.dropna(subset=['MODELOS_AUTORIZADOS'])
 
-    # Tabla 6: Cumplimiento de Tono (Cols U:X) - FILTRADO DE ÚLTIMO REGISTRO REAL
+    # Tabla 6: Cumplimiento de Tono (Cols U:X)
     t6 = df_raw.iloc[:, 20:24].copy()
     t6.columns = ['FECHA', 'CUMP_P1', 'CUMP_P3', 'CUMP_ACUMULADO']
     t6['CUMP_P1'] = pd.to_numeric(t6['CUMP_P1'], errors='coerce')
     t6['CUMP_P3'] = pd.to_numeric(t6['CUMP_P3'], errors='coerce')
     t6['CUMP_ACUMULADO'] = pd.to_numeric(t6['CUMP_ACUMULADO'], errors='coerce')
     
-    # Se eliminan filas donde no haya datos o donde los cumplimientos sean 0.00%
     t6_clean = t6.dropna(subset=['CUMP_P1', 'CUMP_P3', 'CUMP_ACUMULADO'], how='all').copy()
     t6_clean = t6_clean[(t6_clean['CUMP_P1'] > 0) | (t6_clean['CUMP_P3'] > 0) | (t6_clean['CUMP_ACUMULADO'] > 0)]
 
@@ -212,7 +211,14 @@ def process_excel(file_source):
     t11['H6'] = pd.to_numeric(t11['H6'], errors='coerce')
     t11_clean = t11.dropna(subset=['H1', 'H4', 'H5', 'H6'], how='all')
 
-    return (t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6_clean, t7, t8, t9, t10, t11_clean)
+    # 5. Tabla 12: Tonos Nuevos Asignados (Cols AR:AW -> Índices 43 a 48)
+    t12 = df_raw.iloc[:, 43:49].dropna(how='all').copy()
+    t12.columns = ['FECHA', 'MODELO', 'TONO_ASIGNADO', 'RESPONSABLE', 'FORMATO', 'HORNO']
+    t12 = t12.dropna(subset=['MODELO'])
+    # Formatear fecha si aplica
+    t12['FECHA'] = t12['FECHA'].apply(lambda x: x.strftime('%d/%m/%Y') if isinstance(x, (pd.Timestamp, pd.DatetimeIndex)) else str(x).split()[0] if pd.notna(x) else "N/A")
+
+    return (t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6_clean, t7, t8, t9, t10, t11_clean, t12)
 
 @st.cache_data(show_spinner=False)
 def load_and_process(file_bytes):
@@ -295,7 +301,7 @@ if not st.session_state.get("data_loaded", False):
     st.info("ℹ️ **Por favor, ingresa tu reporte en Excel desde el panel lateral para visualizar el dashboard.**")
     st.stop()
 
-t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6, t7, t8, t9, t10, t11 = st.session_state.tables
+t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12 = st.session_state.tables
 
 # =============================================================================
 # HOJA 1: CALIDAD
@@ -744,6 +750,32 @@ elif menu == "TONOS":
         ''', unsafe_allow_html=True)
 
     st.markdown("---")
+
+    # NUEVA SECCIÓN: LISTA DE TONOS NUEVOS ASIGNADOS (POR HORNO)
+    st.markdown('<div class="section-box"><div class="section-title">📋 TONOS NUEVOS ASIGNADOS (CLASIFICADOS POR HORNO)</div>', unsafe_allow_html=True)
+    if not t12.empty:
+        # Selector de Horno para filtrar
+        hornos_disponibles = ["Todos los Hornos"] + sorted(list(t12['HORNO'].astype(str).unique()))
+        horno_sel = st.selectbox("Filtrar por Horno:", hornos_disponibles)
+        
+        df_tonos_filtered = t12 if horno_sel == "Todos los Hornos" else t12[t12['HORNO'].astype(str) == horno_sel]
+        
+        st.dataframe(
+            df_tonos_filtered,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "FECHA": "Fecha",
+                "MODELO": "Modelo",
+                "TONO_ASIGNADO": "Tono Asignado",
+                "RESPONSABLE": "Responsable",
+                "FORMATO": "Formato",
+                "HORNO": "Horno"
+            }
+        )
+    else:
+        st.caption("No hay datos de tonos nuevos asignados disponibles.")
+    st.markdown('</div>', unsafe_allow_html=True)
 
     col_m1, col_m2 = st.columns(2)
     with col_m1:
