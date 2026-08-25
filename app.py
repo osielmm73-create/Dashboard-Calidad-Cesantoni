@@ -325,7 +325,7 @@ if menu == "CALIDAD":
                 marker_line_width=1,
                 text=[fmt_num(v) for v in y_mts2],
                 textposition="inside",
-                textfont=dict(color="#F8FAFC", size=10, weight="bold"),
+                textfont=dict(color="#F8FAFC", size=10)
             ),
             secondary_y=True
         )
@@ -339,7 +339,7 @@ if menu == "CALIDAD":
                 name="Calidad Diaria (%)",
                 text=[f"{v:.2f}%" for v in y_calidad],
                 textposition="top center",
-                textfont=dict(color="#10B981", size=11, weight="bold"),
+                textfont=dict(color="#10B981", size=11),
                 line=dict(color="#10B981", width=3.5),
                 marker=dict(size=8, color="#10B981", symbol="circle")
             ),
@@ -358,7 +358,7 @@ if menu == "CALIDAD":
             secondary_y=False
         )
 
-        # Ajuste seguro de tipo flotante para evitar el ValueError en Plotly
+        # Rango seguro para evitar errores de tipo en Plotly
         min_y = float(y_calidad.min()) if not y_calidad.empty and pd.notna(y_calidad.min()) else 70.0
         y_min_bound = float(min(min_y - 4.0, 70.0))
 
