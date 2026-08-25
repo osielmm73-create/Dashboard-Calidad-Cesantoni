@@ -336,27 +336,32 @@ if menu == "CALIDAD":
             secondary_y=True
         )
 
-        # 2. Línea Calidad Diaria (%) (Rotación vertical -90° para evitar traslape)
+        # 2. Línea Calidad Diaria (%) 
         fig_mix.add_trace(
             go.Scatter(
                 x=t2_dias['DIA_STR'],
                 y=y_calidad,
-                mode="lines+markers+text",
+                mode="lines+markers",
                 name="Calidad Diaria (%)",
-                text=[f"<b>{v:.2f}%</b>" for v in y_calidad],
-                textposition="top center",
-                textfont=dict(color="#000000", size=16, family="sans-serif"),
                 line=dict(color="#000000", width=3),
                 marker=dict(size=7, color="#000000", line=dict(color="#FFFFFF", width=1))
             ),
             secondary_y=False
         )
 
-        # Aplicar la rotación de 90 grados de forma segura
-        fig_mix.update_traces(
-            textangle=-90, 
-            selector=dict(name="Calidad Diaria (%)")
-        )
+        # Agregar etiquetas de texto con rotación exacta a -90 grados mediante anotaciones de Plotly
+        for x_val, y_val in zip(t2_dias['DIA_STR'], y_calidad):
+            if pd.notna(y_val):
+                fig_mix.add_annotation(
+                    x=x_val,
+                    y=y_val,
+                    text=f"<b>{y_val:.2f}%</b>",
+                    showarrow=False,
+                    textangle=-90,
+                    yshift=25,
+                    font=dict(color="#000000", size=14, family="sans-serif"),
+                    yref="y"
+                )
 
         # 3. Línea Meta 94.50%
         fig_mix.add_trace(
