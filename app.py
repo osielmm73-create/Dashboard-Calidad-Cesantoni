@@ -361,19 +361,19 @@ if menu == "CALIDAD":
 
         fig_mix = make_subplots(specs=[[{"secondary_y": True}]])
 
-        # 1. Columnas m² (Gris suave con borde fino para contraste)
+        # 1. Columnas m² (Estilo azul claro con borde oscuro)
         fig_mix.add_trace(
             go.Bar(
                 x=t2_dias['DIA_STR'],
                 y=y_mts2,
                 name="m² Producidos",
-                marker_color="#CBD5E1",        # Gris claro
-                marker_line_color="#64748B",   # Borde bien definido
+                marker_color="#3B82F6",
+                marker_line_color="#1E3A8A",
                 marker_line_width=1,
                 text=[f"{v:,.2f}" if pd.notna(v) else "0.00" for v in y_mts2],
                 texttemplate="%{text}",
                 textposition="inside",
-                textfont=dict(color="#0F172A", size=9, family="sans-serif")
+                textfont=dict(color="#FFFFFF", size=9, family="sans-serif")
             ),
             secondary_y=True
         )
@@ -400,8 +400,8 @@ if menu == "CALIDAD":
                     text=f"<b>{y_val:.2f}%</b>",
                     showarrow=False,
                     textangle=-90,
-                    yshift=40,  # Posiciona la etiqueta por encima del punto
-                    font=dict(color="#000000", size=18, family="sans-serif"),  # Tamaño a 18pt
+                    yshift=40,
+                    font=dict(color="#000000", size=18, family="sans-serif"),
                     yref="y"
                 )
 
@@ -437,7 +437,6 @@ if menu == "CALIDAD":
             title_text="Días del Mes"
         )
 
-        # Eje Y principal (% Calidad)
         fig_mix.update_yaxes(
             title_text="% Calidad",
             showgrid=False,
@@ -446,7 +445,6 @@ if menu == "CALIDAD":
             secondary_y=False
         )
 
-        # Eje Y secundario (Metros Cuadrados)
         fig_mix.update_yaxes(
             title_text="Metros Cuadrados (m²)",
             showgrid=False,
@@ -464,7 +462,7 @@ if menu == "CALIDAD":
 elif menu == "DEFECTIVOS":
     st.markdown('<div class="kpi-section-title">📉 Análisis de Defectos y Áreas Responsables</div>', unsafe_allow_html=True)
     
-    # 1. PARETO DE DEFECTOS GENERAL
+    # 1. PARETO DE DEFECTOS GENERAL (DISEÑO AZUL AZUL VIBRANTE CON TEXTO CLARO)
     st.markdown('<div class="section-box"><div class="section-title">PARETO DE DEFECTOS GENERAL</div>', unsafe_allow_html=True)
     
     if planta_sel == "Planta 1 (P1)":
@@ -488,57 +486,49 @@ elif menu == "DEFECTIVOS":
         )
         fig_def.update_traces(
             textposition='outside',
-            textfont=dict(color='#F8FAFC', size=12, family="sans-serif")
+            textfont=dict(color='#60A5FA', size=11, family="sans-serif"),
+            marker_line_color='#1D4ED8',
+            marker_line_width=1
         )
         
         max_val = df_def['VAL_PCT'].max() if not df_def.empty else 100.0
         fig_def.update_layout(
-            height=420,
+            height=440,
             paper_bgcolor='rgba(0,0,0,0)', 
             plot_bgcolor='rgba(0,0,0,0)', 
             font_color='#94A3B8', 
             margin=dict(l=10, r=10, t=50, b=10)
         )
-        fig_def.update_xaxes(showgrid=False, tickangle=-45, tickfont=dict(color='#E2E8F0', size=11))
+        fig_def.update_xaxes(showgrid=False, tickangle=-45, tickfont=dict(color='#CBD5E1', size=10), title=dict(text="DEFECTO", font=dict(color='#94A3B8', size=12)))
         fig_def.update_yaxes(showgrid=False, visible=False, range=[0, max_val * 1.25])
         st.plotly_chart(fig_def, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # 2. TARJETAS KPI ILUSTRADAS A COLOR (ESTILO INDUSTRIA CERÁMICA - SVG VECTORIAL DE ALTA DEFINICIÓN)
+    # 2. TARJETAS KPI ILUSTRADAS A COLOR (ESTILO INDUSTRIA CERÁMICA - SVG VECTORIAL)
     st.markdown('<div class="section-box"><div class="section-title">DISTRIBUCIÓN POR ÁREA RESPONSABLE</div>', unsafe_allow_html=True)
     
-    # SVG vectorial ultra nítido para PRENSAS (Prensa hidráulica industrial idéntica a la imagen muestra)
     SVG_PRENSAS = """
     <svg width="44" height="44" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <!-- Vástago superior de presión -->
         <rect x="27" y="4" width="10" height="16" rx="2" fill="#475569"/>
         <rect x="29" y="4" width="6" height="16" rx="1" fill="#64748B"/>
-        <!-- Placa móvil superior de prensado -->
         <path d="M16 20 C16 18, 48 18, 48 20 L48 26 C48 28, 16 28, 16 26 Z" fill="#334155"/>
         <rect x="18" y="21" width="28" height="4" rx="1" fill="#475569"/>
-        <!-- Bloque molde cerámico / Azulejo prensado -->
         <rect x="22" y="28" width="20" height="6" rx="1" fill="#CBD5E1" stroke="#94A3B8" stroke-width="1"/>
-        <!-- Mesa de prensado / Base inferior -->
         <rect x="10" y="34" width="44" height="14" rx="3" fill="#1E293B"/>
         <rect x="12" y="36" width="40" height="4" fill="#334155"/>
-        <!-- Soportes base -->
         <rect x="14" y="48" width="8" height="4" fill="#0F172A"/>
         <rect x="42" y="48" width="8" height="4" fill="#0F172A"/>
     </svg>
     """
 
-    # SVG vectorial a color para LÍNEAS DE ESMALTADO (Nave industrial / Tanque de esmaltado a color)
     SVG_ESMALTADO = """
     <svg width="44" height="44" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <!-- Chimeneas rojas -->
         <rect x="16" y="8" width="6" height="20" rx="1" fill="#EF4444"/>
         <rect x="26" y="14" width="6" height="14" rx="1" fill="#EF4444"/>
         <path d="M14 8 H24 V11 H14 Z" fill="#B91C1C"/>
         <path d="M24 14 H34 V17 H24 Z" fill="#B91C1C"/>
-        <!-- Edificio industrial -->
         <path d="M8 28 L24 20 L40 28 V52 H8 Z" fill="#94A3B8"/>
         <path d="M40 28 L56 34 V52 H40 Z" fill="#64748B"/>
-        <!-- Puertas / Ventanas -->
         <rect x="14" y="36" width="10" height="16" rx="1" fill="#38BDF8"/>
         <rect x="30" y="36" width="6" height="6" rx="1" fill="#F1F5F9"/>
         <rect x="44" y="40" width="8" height="12" rx="1" fill="#334155"/>
@@ -601,7 +591,7 @@ elif menu == "DEFECTIVOS":
                 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # 3. DETALLE DE PARETOS P1 Y P3 (GRÁFICAS EN LUGAR DE TABLAS)
+    # 3. DETALLE DE PARETOS P1 Y P3 (COLOR HOMOGÉNEO AZUL CON SUS DATOS RESPECTIVOS DE P1 Y P3)
     st.markdown('<div class="section-box"><div class="section-title">ANÁLISIS COMPARATIVO DE DEFECTOS: PLANTA 1 VS PLANTA 3</div>', unsafe_allow_html=True)
     c_a, c_b = st.columns(2)
     
@@ -617,9 +607,14 @@ elif menu == "DEFECTIVOS":
                 x='DEFECTO_P1', 
                 y='VAL_PCT', 
                 text=df_p1['VAL_PCT'].apply(lambda x: f"{x:.2f}%"),
-                color_discrete_sequence=['#60A5FA']
+                color_discrete_sequence=['#3B82F6']
             )
-            fig_p1.update_traces(textposition='outside', textfont=dict(color='#F8FAFC', size=11))
+            fig_p1.update_traces(
+                textposition='outside', 
+                textfont=dict(color='#60A5FA', size=11, family="sans-serif"),
+                marker_line_color='#1D4ED8',
+                marker_line_width=1
+            )
             max_p1 = df_p1['VAL_PCT'].max() if not df_p1.empty else 100.0
             fig_p1.update_layout(
                 height=400, 
@@ -628,7 +623,7 @@ elif menu == "DEFECTIVOS":
                 font_color='#94A3B8',
                 margin=dict(l=5, r=5, t=40, b=10)
             )
-            fig_p1.update_xaxes(showgrid=False, tickangle=-45, tickfont=dict(color='#E2E8F0', size=10), title=None)
+            fig_p1.update_xaxes(showgrid=False, tickangle=-45, tickfont=dict(color='#CBD5E1', size=10), title=None)
             fig_p1.update_yaxes(showgrid=False, visible=False, range=[0, max_p1 * 1.3])
             st.plotly_chart(fig_p1, use_container_width=True)
 
@@ -644,9 +639,14 @@ elif menu == "DEFECTIVOS":
                 x='DEFECTO_P3', 
                 y='VAL_PCT', 
                 text=df_p3['VAL_PCT'].apply(lambda x: f"{x:.2f}%"),
-                color_discrete_sequence=['#F59E0B']
+                color_discrete_sequence=['#3B82F6']
             )
-            fig_p3.update_traces(textposition='outside', textfont=dict(color='#F8FAFC', size=11))
+            fig_p3.update_traces(
+                textposition='outside', 
+                textfont=dict(color='#60A5FA', size=11, family="sans-serif"),
+                marker_line_color='#1D4ED8',
+                marker_line_width=1
+            )
             max_p3 = df_p3['VAL_PCT'].max() if not df_p3.empty else 100.0
             fig_p3.update_layout(
                 height=400, 
@@ -655,7 +655,7 @@ elif menu == "DEFECTIVOS":
                 font_color='#94A3B8',
                 margin=dict(l=5, r=5, t=40, b=10)
             )
-            fig_p3.update_xaxes(showgrid=False, tickangle=-45, tickfont=dict(color='#E2E8F0', size=10), title=None)
+            fig_p3.update_xaxes(showgrid=False, tickangle=-45, tickfont=dict(color='#CBD5E1', size=10), title=None)
             fig_p3.update_yaxes(showgrid=False, visible=False, range=[0, max_p3 * 1.3])
             st.plotly_chart(fig_p3, use_container_width=True)
             
