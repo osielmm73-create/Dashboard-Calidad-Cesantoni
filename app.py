@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import os
 
 # -----------------------------------------------------------------------------
 # 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS CSS
@@ -90,20 +91,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. PROCESAMIENTO Y LECTURA DE DATOS EXCEL
+# 2. PROCESAMIENTO Y PERSISTENCIA DE DATOS EXCEL
 # -----------------------------------------------------------------------------
 ADMIN_USER = "admin"
 ADMIN_PASSWORD = "calidad2026"
+SAVED_FILE_PATH = "saved_report.xlsx"
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
-if "data_loaded" not in st.session_state:
-    st.session_state.data_loaded = False
-    st.session_state.tables = None
-
-def process_excel(file):
-    xls = pd.ExcelFile(file)
+def process_excel(file_source):
+    xls = pd.ExcelFile(file_source)
     sheet_name = 'DASHBOARD' if 'DASHBOARD' in xls.sheet_names else xls.sheet_names[0]
     df_raw = pd.read_excel(xls, sheet_name=sheet_name)
 
@@ -149,6 +147,19 @@ def process_excel(file):
 
     return (t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6, t7, t8, t9, t10, t11_clean)
 
+# CARGA AUTOMÁTICA DEL ARCHIVO GUARDADO PREVIAMENTE
+if "data_loaded" not in st.session_state:
+    if os.path.exists(SAVED_FILE_PATH):
+        try:
+            st.session_state.tables = process_excel(SAVED_FILE_PATH)
+            st.session_state.data_loaded = True
+        except Exception:
+            st.session_state.data_loaded = False
+            st.session_state.tables = None
+    else:
+        st.session_state.data_loaded = False
+        st.session_state.tables = None
+
 def fmt_pct(val):
     if pd.isna(val) or val is None:
         return "0.00%"
@@ -192,14 +203,21 @@ with st.sidebar:
         
         if uploaded_file is not None:
             try:
-                st.session_state.tables = process_excel(uploaded_file)
+                # GUARDAR ARCHIVO EN DISCO DEL SERVIDOR PARA QUE NO SE PIERDA
+                with open(SAVED_FILE_PATH, "wb") as f:
+                    f.write(uploaded_file.getbuffer())
+                
+                st.session_state.tables = process_excel(SAVED_FILE_PATH)
                 st.session_state.data_loaded = True
-                st.success("¡Datos procesados correctamente!")
+                st.success("¡Datos guardados permanentemente!")
+                st.rerun()
             except Exception as err:
-                st.error(f"Error al leer estructura: {err}")
+                st.error(f"Error al guardar datos: {err}")
         
         if st.session_state.data_loaded:
             if st.button("🗑️ Resetear Datos Cargados"):
+                if os.path.exists(SAVED_FILE_PATH):
+                    os.remove(SAVED_FILE_PATH)
                 st.session_state.data_loaded = False
                 st.session_state.tables = None
                 st.rerun()
