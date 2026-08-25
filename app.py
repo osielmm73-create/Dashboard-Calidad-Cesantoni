@@ -305,7 +305,7 @@ if menu == "CALIDAD":
 
     st.markdown("---")
 
-    # --- GRÁFICA AMPLIADA Y CORREGIDA: CALIDAD DIARIA (%) VS M² ---
+    # --- GRÁFICA CORREGIDA PARA STREAMLIT CLOUD Y PLOTLY MODERNO ---
     st.markdown('<div class="section-box"><div class="section-title">EVOLUCIÓN DIARIA: CALIDAD (%) VS PRODUCCIÓN DE METROS CUADRADOS (M²)</div>', unsafe_allow_html=True)
     if not t2_dias.empty:
         t2_dias['DIA_STR'] = t2_dias['DIA'].astype(str).str.split().str[0]
@@ -358,39 +358,45 @@ if menu == "CALIDAD":
             secondary_y=False
         )
 
-        # Rango seguro para evitar errores de tipo en Plotly
-        min_y = float(y_calidad.min()) if not y_calidad.empty and pd.notna(y_calidad.min()) else 70.0
-        y_min_bound = float(min(min_y - 4.0, 70.0))
+        # Rango numérico seguro para el eje Y1
+        min_val = float(y_calidad.min()) if not y_calidad.empty and pd.notna(y_calidad.min()) else 70.0
+        y_min_bound = float(min(min_val - 4.0, 70.0))
 
+        # Estilo General
         fig_mix.update_layout(
             height=520,
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="#94A3B8"),
+            font_color="#94A3B8",
             margin=dict(l=15, r=15, t=30, b=15),
-            xaxis=dict(
-                type="category",
-                tickangle=-45,
-                showgrid=True,
-                gridcolor="#334155",
-                title="Días del Mes",
-                titlefont=dict(color="#F8FAFC", size=12)
-            ),
-            yaxis=dict(
-                title="% Calidad",
-                titlefont=dict(color="#10B981", size=12),
-                showgrid=True,
-                gridcolor="#334155",
-                tickformat=".1f",
-                range=[y_min_bound, 105.0]
-            ),
-            yaxis2=dict(
-                title="Metros Cuadrados (m²)",
-                titlefont=dict(color="#38BDF8", size=12),
-                showgrid=False,
-                tickformat=",d"
-            ),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+
+        # Eje X
+        fig_mix.update_xaxes(
+            type="category",
+            tickangle=-45,
+            showgrid=True,
+            gridcolor="#334155",
+            title_text="Días del Mes"
+        )
+
+        # Eje Y Primario (Calidad %)
+        fig_mix.update_yaxes(
+            title_text="% Calidad",
+            showgrid=True,
+            gridcolor="#334155",
+            tickformat=".1f",
+            range=[y_min_bound, 105.0],
+            secondary_y=False
+        )
+
+        # Eje Y Secundario (m²)
+        fig_mix.update_yaxes(
+            title_text="Metros Cuadrados (m²)",
+            showgrid=False,
+            tickformat=",d",
+            secondary_y=True
         )
 
         st.plotly_chart(fig_mix, use_container_width=True)
@@ -420,11 +426,11 @@ elif menu == "DEFECTIVOS":
                 height=500,
                 paper_bgcolor='rgba(0,0,0,0)', 
                 plot_bgcolor='rgba(0,0,0,0)', 
-                font=dict(color='#94A3B8'), 
-                margin=dict(l=10, r=10, t=10, b=10), 
-                xaxis=dict(showgrid=False, visible=False), 
-                yaxis=dict(showgrid=False)
+                font_color='#94A3B8', 
+                margin=dict(l=10, r=10, t=10, b=10)
             )
+            fig_def.update_xaxes(showgrid=False, visible=False)
+            fig_def.update_yaxes(showgrid=False)
             st.plotly_chart(fig_def, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -442,7 +448,7 @@ elif menu == "DEFECTIVOS":
                 height=500,
                 paper_bgcolor='rgba(0,0,0,0)', 
                 plot_bgcolor='rgba(0,0,0,0)', 
-                font=dict(color='#94A3B8'), 
+                font_color='#94A3B8', 
                 margin=dict(l=5, r=5, t=5, b=5), 
                 legend=dict(orientation="h", yanchor="bottom", y=-0.2)
             )
@@ -478,10 +484,10 @@ elif menu == "TONOS":
             height=480,
             paper_bgcolor='rgba(0,0,0,0)', 
             plot_bgcolor='rgba(0,0,0,0)', 
-            font=dict(color='#94A3B8'), 
-            xaxis=dict(showgrid=False), 
-            yaxis=dict(showgrid=True, gridcolor='#334155')
+            font_color='#94A3B8'
         )
+        fig_tono.update_xaxes(showgrid=False)
+        fig_tono.update_yaxes(showgrid=True, gridcolor='#334155')
         st.plotly_chart(fig_tono, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -510,10 +516,10 @@ elif menu == "GARANTÍAS":
                 height=450,
                 paper_bgcolor='rgba(0,0,0,0)', 
                 plot_bgcolor='rgba(0,0,0,0)', 
-                font=dict(color='#94A3B8'), 
-                xaxis=dict(showgrid=False), 
-                yaxis=dict(showgrid=True, gridcolor='#334155')
+                font_color='#94A3B8'
             )
+            fig_gar.update_xaxes(showgrid=False)
+            fig_gar.update_yaxes(showgrid=True, gridcolor='#334155')
             st.plotly_chart(fig_gar, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
         
