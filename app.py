@@ -361,15 +361,15 @@ if menu == "CALIDAD":
 
         fig_mix = make_subplots(specs=[[{"secondary_y": True}]])
 
-        # 1. Columnas m² (Estilo azul claro con borde oscuro)
+        # 1. Columnas m² (Gris tenue con borde marcado)
         fig_mix.add_trace(
             go.Bar(
                 x=t2_dias['DIA_STR'],
                 y=y_mts2,
                 name="m² Producidos",
-                marker_color="#3B82F6",
-                marker_line_color="#1E3A8A",
-                marker_line_width=1,
+                marker_color="#64748B",
+                marker_line_color="#1E293B",
+                marker_line_width=1.5,
                 text=[f"{v:,.2f}" if pd.notna(v) else "0.00" for v in y_mts2],
                 texttemplate="%{text}",
                 textposition="inside",
@@ -391,7 +391,7 @@ if menu == "CALIDAD":
             secondary_y=False
         )
 
-        # Agregar etiquetas de texto a 18pt por encima de los puntos sin encimarse
+        # Agregar etiquetas de texto por encima de los puntos
         for x_val, y_val in zip(t2_dias['DIA_STR'], y_calidad):
             if pd.notna(y_val):
                 fig_mix.add_annotation(
@@ -462,7 +462,7 @@ if menu == "CALIDAD":
 elif menu == "DEFECTIVOS":
     st.markdown('<div class="kpi-section-title">📉 Análisis de Defectos y Áreas Responsables</div>', unsafe_allow_html=True)
     
-    # 1. PARETO DE DEFECTOS GENERAL (SIN TÍTULO EN EJE Y)
+    # 1. PARETO DE DEFECTOS GENERAL
     st.markdown('<div class="section-box"><div class="section-title">PARETO DE DEFECTOS GENERAL</div>', unsafe_allow_html=True)
     
     if planta_sel == "Planta 1 (P1)":
