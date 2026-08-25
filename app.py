@@ -57,9 +57,9 @@ st.markdown("""
     .kpi-section-title {
         font-size: 12px;
         font-weight: 800;
-        color: #94A3B8;
+        color: #38BDF8;
         text-transform: uppercase;
-        margin-top: 10px;
+        margin-top: 14px;
         margin-bottom: 8px;
         letter-spacing: 0.5px;
     }
@@ -128,7 +128,7 @@ def process_excel(file):
     resumen_mensual_row = t2[t2['DIA'].astype(str).str.contains("Total|Mensual|Promedio", case=False, na=False)]
     t2_dias = t2[~t2['DIA'].astype(str).str.contains("Total|Mensual|Promedio", case=False, na=False)].dropna(subset=['P1_P3_DIARIA'])
 
-    # 3. Resto de Tablas
+    # 3. Otras Tablas
     t3 = df_raw.iloc[:, 11:13].dropna(how='all'); t3.columns = ['MES_GARANTIAS', 'GARANTIAS']
     t4 = df_raw.iloc[:, 14:16].dropna(how='all'); t4.columns = ['MODELO_PRUEBA', 'HORNO_PRUEBAS']
     t5 = df_raw.iloc[:, 17:19].dropna(how='all'); t5.columns = ['MODELOS_AUTORIZADOS', 'HORNO_AUTORIZADOS']
@@ -138,8 +138,7 @@ def process_excel(file):
     t9 = df_raw.iloc[:, 31:33].dropna(how='all'); t9.columns = ['DEFECTO_P3', 'PORC_DEFECTO_P3']
     t10 = df_raw.iloc[:, 34:36].dropna(how='all'); t10.columns = ['AREA_RESPONSABLE', 'PORC_AREA']
 
-    # 4. Tabla 11: Calidad por Horno (Cols AL:AP -> AL=DIA/ETIQUETA, AM=H1, AN=H4, AO=H5, AP=H6)
-    # Índices 37 a 41
+    # 4. Tabla 11: Calidad por Horno (Cols AL:AP -> AL=DIA, AM=H1, AN=H4, AO=H5, AP=H6)
     t11 = df_raw.iloc[:, 37:42].copy()
     t11.columns = ['DIA_HORNO', 'H1', 'H4', 'H5', 'H6']
     t11['H1'] = pd.to_numeric(t11['H1'], errors='coerce')
@@ -161,14 +160,15 @@ def fmt_num(val):
     return f"{val:,.0f}"
 
 # -----------------------------------------------------------------------------
-# 3. PANEL LATERAL
+# 3. PANEL LATERAL DE NAVEGACIÓN
 # -----------------------------------------------------------------------------
 with st.sidebar:
     st.markdown("## 🟩 **SISTEMA DE CALIDAD**")
     st.caption("PISO CERÁMICO P1 & P3")
     st.markdown("---")
     
-    menu = st.radio("NAVEGACIÓN", ["RESUMEN", "INDICADORES", "DEFECTOS", "MODELOS Y HORNOS"])
+    # Nuevo menú de navegación ordenado
+    menu = st.radio("NAVEGACIÓN", ["CALIDAD", "DEFECTIVOS", "TONOS", "GARANTÍAS"])
     st.markdown("---")
     
     planta_sel = st.selectbox("Seleccionar Planta / Línea", ["Todas (P1 & P3)", "Planta 1 (P1)", "Planta 3 (P3)"])
@@ -210,7 +210,7 @@ with st.sidebar:
             st.rerun()
 
 # -----------------------------------------------------------------------------
-# 4. DASHBOARD PRINCIPAL - PÁGINA: RESUMEN
+# 4. DASHBOARD PRINCIPAL
 # -----------------------------------------------------------------------------
 st.markdown("""
 <div class="dashboard-header">
@@ -225,9 +225,12 @@ if not st.session_state.data_loaded:
 
 t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6, t7, t8, t9, t10, t11 = st.session_state.tables
 
-if menu == "RESUMEN":
+# =============================================================================
+# HOJA 1: CALIDAD
+# =============================================================================
+if menu == "CALIDAD":
 
-    # --- DATOS KPI (ANUAL, MENSUAL, DIARIO) ---
+    # --- DATOS KPI ---
     if not total_gen_row.empty:
         v_anual_ac = total_gen_row['P1_P3_ANUAL'].values[0]
         v_anual_p1 = total_gen_row['P1_ANUAL'].values[0]
@@ -282,7 +285,7 @@ if menu == "RESUMEN":
     with d3:
         st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Diaria P3</div><div class="kpi-value" style="color: #F59E0B;">{fmt_pct(v_diaria_p3)}</div><div class="kpi-subtext">Día P3</div></div>', unsafe_allow_html=True)
 
-    # --- CALIDAD POR HORNO (TABLA 11: AL, AM, AN, AO, AP -> ÚLTIMO DÍA) ---
+    # --- CALIDAD POR HORNO (TABLA 11 AL:AP) ---
     st.markdown('<div class="kpi-section-title">🔥 Calidad por Horno (Último Registro)</div>', unsafe_allow_html=True)
     if not t11.empty:
         ult_horno_row = t11.iloc[-1]
@@ -303,79 +306,84 @@ if menu == "RESUMEN":
 
     st.markdown("---")
 
-    # --- GRÁFICA MIXTA: CALIDAD DIARIA (%) VS. METROS CUADRADOS (M2) ---
-    st.markdown('<div class="section-box"><div class="section-title">EVOLUCIÓN DIARIA: CALIDAD (%) VS PROD. METROS CUADRADOS (M²)</div>', unsafe_allow_html=True)
+    # --- GRÁFICA AMPLIDA Y OPTIMIZADA: CALIDAD DIARIA (%) VS M² ---
+    st.markdown('<div class="section-box"><div class="section-title">EVOLUCIÓN DIARIA: CALIDAD (%) VS PRODUCCIÓN DE METROS CUADRADOS (M²)</div>', unsafe_allow_html=True)
     if not t2_dias.empty:
-        # Formatear la fecha/día para asegurar que figuren todos los días sin saltos
         t2_dias['DIA_STR'] = t2_dias['DIA'].astype(str).str.split().str[0]
         y_calidad = t2_dias['P1_P3_DIARIA'] * 100 if t2_dias['P1_P3_DIARIA'].max() <= 1.0 else t2_dias['P1_P3_DIARIA']
         y_mts2 = t2_dias['MTS2_DIA']
 
         fig_mix = make_subplots(specs=[[{"secondary_y": True}]])
 
-        # 1. Columnas de Metros Cuadrados (Eje Secundario Y2)
+        # 1. Columnas m² (Eje Y2) - Azul Metálico Resaltado
         fig_mix.add_trace(
             go.Bar(
                 x=t2_dias['DIA_STR'],
                 y=y_mts2,
                 name="m² Producidos",
-                marker_color="rgba(51, 65, 85, 0.6)", # Gris azulado semi-transparente
+                marker_color="rgba(56, 189, 248, 0.45)", # Azul brillante semi-transparente
+                marker_line_color="#38BDF8",
+                marker_line_width=1,
                 text=[fmt_num(v) for v in y_mts2],
                 textposition="inside",
-                textfont=dict(color="#94A3B8", size=9),
+                textfont=dict(color="#F8FAFC", size=10, weight="bold"),
             ),
             secondary_y=True
         )
 
-        # 2. Línea de Calidad Diaria (Eje Principal Y1)
+        # 2. Línea Calidad Diaria (Eje Y1) - Verde Neón con etiquetas claras
         fig_mix.add_trace(
             go.Scatter(
                 x=t2_dias['DIA_STR'],
                 y=y_calidad,
                 mode="lines+markers+text",
-                name="Calidad Diaria",
+                name="Calidad Diaria (%)",
                 text=[f"{v:.2f}%" for v in y_calidad],
                 textposition="top center",
-                textfont=dict(color="#10B981", size=10, weight="bold"),
-                line=dict(color="#10B981", width=3),
-                marker=dict(size=7, color="#10B981")
+                textfont=dict(color="#10B981", size=11, weight="bold"),
+                line=dict(color="#10B981", width=3.5),
+                marker=dict(size=8, color="#10B981", symbol="circle")
             ),
             secondary_y=False
         )
 
-        # 3. Línea Límite / Meta al 94.50% (Eje Principal Y1)
+        # 3. Línea Meta 94.50% (Eje Y1) - Rojo Vibrante
         fig_mix.add_trace(
             go.Scatter(
                 x=t2_dias['DIA_STR'],
                 y=[94.50] * len(t2_dias),
                 mode="lines",
-                name="Límite Meta (94.50%)",
-                line=dict(color="#EF4444", width=2, dash="dash")
+                name="Meta Calidad (94.50%)",
+                line=dict(color="#EF4444", width=2.5, dash="dash")
             ),
             secondary_y=False
         )
 
         fig_mix.update_layout(
+            height=520, # Mayor tamaño vertical para evitar la saturación
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             font=dict(color="#94A3B8"),
-            margin=dict(l=10, r=10, t=30, b=10),
+            margin=dict(l=15, r=15, t=30, b=15),
             xaxis=dict(
-                type="category", # Forzar a mostrar TODOS los días en el eje X
+                type="category",
                 tickangle=-45,
                 showgrid=True,
                 gridcolor="#334155",
-                title="Día"
+                title="Días del Mes",
+                titlefont=dict(color="#F8FAFC", size=12)
             ),
             yaxis=dict(
                 title="% Calidad",
+                titlefont=dict(color="#10B981", size=12),
                 showgrid=True,
                 gridcolor="#334155",
                 tickformat=".1f",
-                range=[min(y_calidad.min() - 3, 70), 105]
+                range=[min(y_calidad.min() - 4, 70), 105]
             ),
             yaxis2=dict(
                 title="Metros Cuadrados (m²)",
+                titlefont=dict(color="#38BDF8", size=12),
                 showgrid=False,
                 tickformat=",d"
             ),
@@ -385,75 +393,95 @@ if menu == "RESUMEN":
         st.plotly_chart(fig_mix, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- PARETO Y DISTRIBUCIÓN POR ÁREA ---
+# =============================================================================
+# HOJA 2: DEFECTIVOS
+# =============================================================================
+elif menu == "DEFECTIVOS":
+    st.markdown('<div class="kpi-section-title">📉 Análisis de Defectos y Áreas Responsables</div>', unsafe_allow_html=True)
+    
     col_sub1, col_sub2 = st.columns(2)
     with col_sub1:
         st.markdown('<div class="section-box"><div class="section-title">PARETO DE DEFECTOS</div>', unsafe_allow_html=True)
         df_def = t8.rename(columns={'DEFECTO_P1': 'DEFECTO', 'PORC_DEFECTO_P1': 'PORC_DEFECTO'}) if planta_sel == "Planta 1 (P1)" else (t9.rename(columns={'DEFECTO_P3': 'DEFECTO', 'PORC_DEFECTO_P3': 'PORC_DEFECTO'}) if planta_sel == "Planta 3 (P3)" else t7)
         if not df_def.empty:
             df_def = df_def.sort_values(by='PORC_DEFECTO', ascending=True)
-            fig_def = px.bar(df_def, x='PORC_DEFECTO', y='DEFECTO', orientation='h', text=df_def['PORC_DEFECTO'].apply(lambda x: fmt_pct(x)), color_discrete_sequence=['#3B82F6'])
-            fig_def.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#94A3B8'), margin=dict(l=10, r=10, t=10, b=10), xaxis=dict(showgrid=False, visible=False), yaxis=dict(showgrid=False))
+            fig_def = px.bar(
+                df_def, 
+                x='PORC_DEFECTO', 
+                y='DEFECTO', 
+                orientation='h', 
+                text=df_def['PORC_DEFECTO'].apply(lambda x: fmt_pct(x)), 
+                color_discrete_sequence=['#3B82F6']
+            )
+            fig_def.update_layout(
+                height=500,
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)', 
+                font=dict(color='#94A3B8'), 
+                margin=dict(l=10, r=10, t=10, b=10), 
+                xaxis=dict(showgrid=False, visible=False), 
+                yaxis=dict(showgrid=False)
+            )
             st.plotly_chart(fig_def, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col_sub2:
-        st.markdown('<div class="section-box"><div class="section-title">DISTRIBUCIÓN POR ÁREA</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-box"><div class="section-title">DISTRIBUCIÓN POR ÁREA RESPONSABLE</div>', unsafe_allow_html=True)
         if not t10.empty:
-            fig_donut = px.pie(t10, names='AREA_RESPONSABLE', values='PORC_AREA', hole=0.5, color_discrete_sequence=px.colors.qualitative.Set3)
-            fig_donut.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#94A3B8'), margin=dict(l=5, r=5, t=5, b=5), legend=dict(orientation="h", yanchor="bottom", y=-0.3))
+            fig_donut = px.pie(
+                t10, 
+                names='AREA_RESPONSABLE', 
+                values='PORC_AREA', 
+                hole=0.45, 
+                color_discrete_sequence=px.colors.qualitative.Set3
+            )
+            fig_donut.update_layout(
+                height=500,
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)', 
+                font=dict(color='#94A3B8'), 
+                margin=dict(l=5, r=5, t=5, b=5), 
+                legend=dict(orientation="h", yanchor="bottom", y=-0.2)
+            )
             st.plotly_chart(fig_donut, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-# -----------------------------------------------------------------------------
-# RESTO DE PÁGINAS (INDICADORES, DEFECTOS, MODELOS Y HORNOS)
-# -----------------------------------------------------------------------------
-elif menu == "INDICADORES":
-    col_ind1, col_ind2 = st.columns(2)
-    with col_ind1:
-        st.markdown('<div class="section-box"><div class="section-title">HISTÓRICO DE CALIDAD MES A MES</div>', unsafe_allow_html=True)
-        if not t1_meses.empty:
-            fig_anual = px.line(t1_meses, x='MES', y=['P1_ANUAL', 'P3_ANUAL', 'P1_P3_ANUAL'], markers=True, color_discrete_map={'P1_ANUAL': '#3B82F6', 'P3_ANUAL': '#F59E0B', 'P1_P3_ANUAL': '#10B981'})
-            fig_anual.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#94A3B8'), xaxis=dict(showgrid=True, gridcolor='#334155'), yaxis=dict(showgrid=True, gridcolor='#334155', tickformat=".2f"))
-            st.plotly_chart(fig_anual, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    with col_ind2:
-        st.markdown('<div class="section-box"><div class="section-title">GARANTÍAS RECLAMADAS POR MES</div>', unsafe_allow_html=True)
-        if not t3.empty:
-            fig_gar = px.bar(t3, x='MES_GARANTIAS', y='GARANTIAS', text='GARANTIAS', color_discrete_sequence=['#EF4444'])
-            fig_gar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#94A3B8'), xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor='#334155'))
-            st.plotly_chart(fig_gar, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-box"><div class="section-title">DETALLE DE TABLAS DE DEFECTOS</div>', unsafe_allow_html=True)
+    c_a, c_b = st.columns(2)
+    with c_a:
+        st.subheader("Defectos Planta 1 (P1)")
+        st.dataframe(t8, use_container_width=True)
+    with c_b:
+        st.subheader("Defectos Planta 3 (P3)")
+        st.dataframe(t9, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="section-box"><div class="section-title">CUMPLIMIENTO DE TONO EN PRODUCCIÓN</div>', unsafe_allow_html=True)
+# =============================================================================
+# HOJA 3: TONOS
+# =============================================================================
+elif menu == "TONOS":
+    st.markdown('<div class="kpi-section-title">🎨 Cumplimiento y Control de Tonos</div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="section-box"><div class="section-title">CUMPLIMIENTO DE TONO EN PRODUCCIÓN (%)</div>', unsafe_allow_html=True)
     if not t6.empty:
-        fig_tono = px.bar(t6, x='FECHA', y=['CUMP_P1', 'CUMP_P3', 'CUMP_ACUMULADO'], barmode='group', color_discrete_sequence=['#3B82F6', '#F59E0B', '#10B981'])
-        fig_tono.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#94A3B8'), xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor='#334155'))
+        fig_tono = px.bar(
+            t6, 
+            x='FECHA', 
+            y=['CUMP_P1', 'CUMP_P3', 'CUMP_ACUMULADO'], 
+            barmode='group', 
+            color_discrete_sequence=['#3B82F6', '#F59E0B', '#10B981']
+        )
+        fig_tono.update_layout(
+            height=480,
+            paper_bgcolor='rgba(0,0,0,0)', 
+            plot_bgcolor='rgba(0,0,0,0)', 
+            font=dict(color='#94A3B8'), 
+            xaxis=dict(showgrid=False), 
+            yaxis=dict(showgrid=True, gridcolor='#334155')
+        )
         st.plotly_chart(fig_tono, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-elif menu == "DEFECTOS":
-    col_d1, col_d2 = st.columns(2)
-    with col_d1:
-        st.markdown('<div class="section-box"><div class="section-title">DEFECTOS EN PLANTA 1 (P1)</div>', unsafe_allow_html=True)
-        st.dataframe(t8, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    with col_d2:
-        st.markdown('<div class="section-box"><div class="section-title">DEFECTOS EN PLANTA 3 (P3)</div>', unsafe_allow_html=True)
-        st.dataframe(t9, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown('<div class="section-box"><div class="section-title">DEFECTOS GLOBALES Y RESPONSABILIDAD DE ÁREA</div>', unsafe_allow_html=True)
-    c_a, c_b = st.columns(2)
-    with c_a:
-        st.subheader("Defectos Consolidados (P1 & P3)")
-        st.dataframe(t7, use_container_width=True)
-    with c_b:
-        st.subheader("% Defectos por Área Responsable")
-        st.dataframe(t10, use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-elif menu == "MODELOS Y HORNOS":
     col_m1, col_m2 = st.columns(2)
     with col_m1:
         st.markdown('<div class="section-box"><div class="section-title">MODELOS DE PRUEBA EN HORNO</div>', unsafe_allow_html=True)
@@ -462,4 +490,31 @@ elif menu == "MODELOS Y HORNOS":
     with col_m2:
         st.markdown('<div class="section-box"><div class="section-title">MODELOS AUTORIZADOS</div>', unsafe_allow_html=True)
         st.dataframe(t5, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# =============================================================================
+# HOJA 4: GARANTÍAS
+# =============================================================================
+elif menu == "GARANTÍAS":
+    st.markdown('<div class="kpi-section-title">🛡️ Reclamaciones y Garantías</div>', unsafe_allow_html=True)
+    
+    col_g1, col_g2 = st.columns([2, 1])
+    with col_g1:
+        st.markdown('<div class="section-box"><div class="section-title">GARANTÍAS RECLAMADAS POR MES</div>', unsafe_allow_html=True)
+        if not t3.empty:
+            fig_gar = px.bar(t3, x='MES_GARANTIAS', y='GARANTIAS', text='GARANTIAS', color_discrete_sequence=['#EF4444'])
+            fig_gar.update_layout(
+                height=450,
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)', 
+                font=dict(color='#94A3B8'), 
+                xaxis=dict(showgrid=False), 
+                yaxis=dict(showgrid=True, gridcolor='#334155')
+            )
+            st.plotly_chart(fig_gar, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+    with col_g2:
+        st.markdown('<div class="section-box"><div class="section-title">DATOS DE GARANTÍAS</div>', unsafe_allow_html=True)
+        st.dataframe(t3, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
