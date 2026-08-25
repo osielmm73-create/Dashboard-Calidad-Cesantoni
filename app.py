@@ -3,7 +3,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import os
 
 # -----------------------------------------------------------------------------
 # 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS CSS
@@ -91,11 +90,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. PROCESAMIENTO Y PERSISTENCIA DE DATOS EXCEL
+# 2. PROCESAMIENTO Y CACHÉ PERSISTENTE DE DATOS EXCEL
 # -----------------------------------------------------------------------------
 ADMIN_USER = "admin"
 ADMIN_PASSWORD = "calidad2026"
-SAVED_FILE_PATH = "saved_report.xlsx"
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
@@ -147,18 +145,9 @@ def process_excel(file_source):
 
     return (t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6, t7, t8, t9, t10, t11_clean)
 
-# CARGA AUTOMÁTICA DEL ARCHIVO GUARDADO PREVIAMENTE
-if "data_loaded" not in st.session_state:
-    if os.path.exists(SAVED_FILE_PATH):
-        try:
-            st.session_state.tables = process_excel(SAVED_FILE_PATH)
-            st.session_state.data_loaded = True
-        except Exception:
-            st.session_state.data_loaded = False
-            st.session_state.tables = None
-    else:
-        st.session_state.data_loaded = False
-        st.session_state.tables = None
+@st.cache_data(show_spinner=False)
+def load_and_process(file_bytes):
+    return process_excel(file_bytes)
 
 def fmt_pct(val):
     if pd.isna(val) or val is None:
@@ -193,7 +182,6 @@ with st.sidebar:
             if st.button("Ingresar", type="primary"):
                 if u_in == ADMIN_USER and p_in == ADMIN_PASSWORD:
                     st.session_state.authenticated = True
-                    st.success("Sesión activa")
                     st.rerun()
                 else:
                     st.error("Credenciales erróneas")
@@ -202,24 +190,22 @@ with st.sidebar:
         uploaded_file = st.file_uploader("Cargar Reporte Excel", type=["xlsx", "xls"])
         
         if uploaded_file is not None:
+            st.session_state["stored_file"] = uploaded_file.getvalue()
+
+        if "stored_file" in st.session_state:
             try:
-                # GUARDAR ARCHIVO EN DISCO DEL SERVIDOR PARA QUE NO SE PIERDA
-                with open(SAVED_FILE_PATH, "wb") as f:
-                    f.write(uploaded_file.getbuffer())
-                
-                st.session_state.tables = process_excel(SAVED_FILE_PATH)
+                st.session_state.tables = load_and_process(st.session_state["stored_file"])
                 st.session_state.data_loaded = True
-                st.success("¡Datos guardados permanentemente!")
-                st.rerun()
             except Exception as err:
-                st.error(f"Error al guardar datos: {err}")
+                st.error(f"Error al procesar el archivo: {err}")
         
-        if st.session_state.data_loaded:
+        if st.session_state.get("data_loaded", False):
             if st.button("🗑️ Resetear Datos Cargados"):
-                if os.path.exists(SAVED_FILE_PATH):
-                    os.remove(SAVED_FILE_PATH)
+                if "stored_file" in st.session_state:
+                    del st.session_state["stored_file"]
                 st.session_state.data_loaded = False
                 st.session_state.tables = None
+                st.cache_data.clear()
                 st.rerun()
                 
         if st.button("Cerrar Sesión"):
@@ -236,7 +222,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-if not st.session_state.data_loaded:
+if not st.session_state.get("data_loaded", False):
     st.info("ℹ️ **Por favor, ingresa tu reporte en Excel desde el panel lateral para visualizar el dashboard.**")
     st.stop()
 
@@ -323,7 +309,7 @@ if menu == "CALIDAD":
 
     st.markdown("---")
 
-    # --- GRÁFICA CORREGIDA CON ETIQUETAS VISIBLES ---
+    # --- GRÁFICA COMBINADA ---
     st.markdown('<div class="section-box"><div class="section-title">EVOLUCIÓN DIARIA: CALIDAD (%) VS PRODUCCIÓN DE METROS CUADRADOS (M²)</div>', unsafe_allow_html=True)
     if not t2_dias.empty:
         t2_dias['DIA_STR'] = t2_dias['DIA'].astype(str).str.split().str[0]
@@ -332,7 +318,7 @@ if menu == "CALIDAD":
 
         fig_mix = make_subplots(specs=[[{"secondary_y": True}]])
 
-        # 1. Columnas m² (Eje Y2) - Con etiquetas en blanco de alta visibilidad
+        # 1. Columnas m² (Eje Y2)
         fig_mix.add_trace(
             go.Bar(
                 x=t2_dias['DIA_STR'],
