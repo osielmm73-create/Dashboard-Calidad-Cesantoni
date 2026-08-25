@@ -90,7 +90,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. PROCESAMIENTO Y LECTURA DE DATOS EXCEL (TUS CÁLCULOS 100% INTACTOS)
+# 2. PROCESAMIENTO Y LECTURA DE DATOS EXCEL
 # -----------------------------------------------------------------------------
 ADMIN_USER = "admin"
 ADMIN_PASSWORD = "calidad2026"
@@ -305,7 +305,7 @@ if menu == "CALIDAD":
 
     st.markdown("---")
 
-    # --- GRÁFICA CORREGIDA ---
+    # --- GRÁFICA CORREGIDA CON ETIQUETAS VISIBLES ---
     st.markdown('<div class="section-box"><div class="section-title">EVOLUCIÓN DIARIA: CALIDAD (%) VS PRODUCCIÓN DE METROS CUADRADOS (M²)</div>', unsafe_allow_html=True)
     if not t2_dias.empty:
         t2_dias['DIA_STR'] = t2_dias['DIA'].astype(str).str.split().str[0]
@@ -314,18 +314,19 @@ if menu == "CALIDAD":
 
         fig_mix = make_subplots(specs=[[{"secondary_y": True}]])
 
-        # 1. Columnas m² (Eje Y2)
+        # 1. Columnas m² (Eje Y2) - Con etiquetas en blanco de alta visibilidad
         fig_mix.add_trace(
             go.Bar(
                 x=t2_dias['DIA_STR'],
                 y=y_mts2,
                 name="m² Producidos",
-                marker_color="rgba(51, 65, 85, 0.45)",
+                marker_color="rgba(51, 65, 85, 0.65)",
                 marker_line_color="#475569",
                 marker_line_width=1,
                 text=[fmt_num(v) for v in y_mts2],
+                texttemplate="%{text}",
                 textposition="inside",
-                textfont=dict(color="#94A3B8", size=9)
+                textfont=dict(color="#FFFFFF", size=10)
             ),
             secondary_y=True
         )
