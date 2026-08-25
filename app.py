@@ -15,11 +15,9 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* Fondo General */
     .main { background-color: #0F172A; color: #F8FAFC; font-family: 'Segoe UI', Roboto, sans-serif; }
     .block-container { padding: 1.5rem 2rem 2rem 2rem; }
 
-    /* BARRA LATERAL */
     [data-testid="stSidebar"] { 
         background-color: #1E293B !important; 
         border-right: 1px solid #334155; 
@@ -40,7 +38,6 @@ st.markdown("""
         font-weight: 700 !important;
     }
 
-    /* Header del Dashboard */
     .dashboard-header { 
         background: linear-gradient(90deg, #1E293B 0%, #0F172A 100%); 
         padding: 20px 24px; 
@@ -52,7 +49,6 @@ st.markdown("""
     .header-title { font-size: 26px; font-weight: 800; color: #FFFFFF; margin: 0; }
     .header-subtitle { font-size: 13px; color: #94A3B8; margin-top: 4px; }
 
-    /* Tarjetas KPI Verticales */
     .kpi-card { 
         background-color: #1E293B; 
         border: 1px solid #334155; 
@@ -66,7 +62,6 @@ st.markdown("""
     .kpi-value { font-size: 24px; font-weight: 800; margin-bottom: 2px; }
     .kpi-subtext { font-size: 10px; color: #64748B; }
 
-    /* Cajas de Gráficos y Tablas */
     .section-box { 
         background-color: #1E293B; 
         border: 1px solid #334155; 
@@ -79,7 +74,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. PROCESAMIENTO Y FILTRADO EXACTO DE DATOS
+# 2. PROCESAMIENTO Y LECTURA DE DATOS EXCEL
 # -----------------------------------------------------------------------------
 ADMIN_USER = "admin"
 ADMIN_PASSWORD = "calidad2026"
@@ -113,7 +108,9 @@ def process_excel(file):
     t2['P3_DIARIA'] = pd.to_numeric(t2['P3_DIARIA'], errors='coerce')
     t2['P1_P3_DIARIA'] = pd.to_numeric(t2['P1_P3_DIARIA'], errors='coerce')
     t2['MTS2_DIA'] = pd.to_numeric(t2['MTS2_DIA'], errors='coerce')
-    t2 = t2.dropna(subset=['P1_P3_DIARIA'])
+    
+    # Limpiar filas nulas o vacías
+    t2 = t2.dropna(subset=['DIA', 'P1_P3_DIARIA'])
 
     # 3. Resto de Tablas
     t3 = df_raw.iloc[:, 11:13].dropna(how='all'); t3.columns = ['MES_GARANTIAS', 'GARANTIAS']
@@ -182,7 +179,7 @@ with st.sidebar:
             st.rerun()
 
 # -----------------------------------------------------------------------------
-# 4. DASHBOARD Y CÁLCULOS EXACTOS
+# 4. VISTA PRINCIPAL Y LÓGICA DE CALIDAD
 # -----------------------------------------------------------------------------
 st.markdown("""
 <div class="dashboard-header">
@@ -199,36 +196,50 @@ t1_meses, total_gen_row, t2, t3, t4, t5, t6, t7, t8, t9, t10 = st.session_state.
 
 if menu == "RESUMEN":
 
-    # --- CÁLCULOS A 2 DECIMALES ---
+    # A) CALIDAD ANUAL (Total General de la Tabla 1 del Excel)
     if not total_gen_row.empty:
         v_anual_ac = total_gen_row['P1_P3_ANUAL'].values[0]
         v_anual_p1 = total_gen_row['P1_ANUAL'].values[0]
         v_anual_p3 = total_gen_row['P3_ANUAL'].values[0]
     else:
-        v_anual_ac = t1_meses['P1_P3_ANUAL'].mean() if not t1_meses.empty else 0
-        v_anual_p1 = t1_meses['P1_ANUAL'].mean() if not t1_meses.empty else 0
-        v_anual_p3 = t1_meses['P3_ANUAL'].mean() if not t1_meses.empty else 0
+        v_anual_ac = t1_meses['P1_P3_ANUAL'].iloc[-1] if not t1_meses.empty else 0
+        v_anual_p1 = t1_meses['P1_ANUAL'].iloc[-1] if not t1_meses.empty else 0
+        v_anual_p3 = t1_meses['P3_ANUAL'].iloc[-1] if not t1_meses.empty else 0
 
-    v_mensual_ac = t2['P1_P3_DIARIA'].mean() if not t2.empty else 0
-    v_mensual_p1 = t2['P1_DIARIA'].mean() if not t2.empty else 0
-    v_mensual_p3 = t2['P3_DIARIA'].mean() if not t2.empty else 0
+    # B) CALIDAD MENSUAL (Media Ponderada por m² producidos)
+    total_mts2 = t2['MTS2_DIA'].sum() if 'MTS2_DIA' in t2.columns else 0
+    
+    if total_mts2 > 0:
+        v_mensual_ac = (t2['P1_P3_DIARIA'] * t2['MTS2_DIA']).sum() / total_mts2
+        v_mensual_p1 = (t2['P1_DIARIA'] * t2['MTS2_DIA']).sum() / total_mts2
+        v_mensual_p3 = (t2['P3_DIARIA'] * t2['MTS2_DIA']).sum() / total_mts2
+    else:
+        # En caso de no tener m², tomar el promedio directo filtrado
+        v_mensual_ac = t2['P1_P3_DIARIA'].mean() if not t2.empty else 0
+        v_mensual_p1 = t2['P1_DIARIA'].mean() if not t2.empty else 0
+        v_mensual_p3 = t2['P3_DIARIA'].mean() if not t2.empty else 0
 
-    ult_reg = t2.iloc[-1] if not t2.empty else None
-    v_diaria_ac = ult_reg['P1_P3_DIARIA'] if ult_reg is not None else 0
-    v_diaria_p1 = ult_reg['P1_DIARIA'] if ult_reg is not None else 0
-    v_diaria_p3 = ult_reg['P3_DIARIA'] if ult_reg is not None else 0
-    fecha_ult = str(ult_reg['DIA']).split()[0] if ult_reg is not None else "N/A"
+    # C) CALIDAD DIARIA (Última fila activa de la Tabla Diaria)
+    if not t2.empty:
+        ult_reg = t2.iloc[-1]
+        v_diaria_ac = ult_reg['P1_P3_DIARIA']
+        v_diaria_p1 = ult_reg['P1_DIARIA']
+        v_diaria_p3 = ult_reg['P3_DIARIA']
+        fecha_ult = str(ult_reg['DIA']).split()[0]
+    else:
+        v_diaria_ac = v_diaria_p1 = v_diaria_p3 = 0
+        fecha_ult = "N/A"
 
     # -----------------------------------------------------------------------------
-    # DESPLIEGUE DE TARJETAS VERTICALES
+    # TARJETAS DE MÉTRICAS
     # -----------------------------------------------------------------------------
     col_kpis, col_charts = st.columns([1, 2.3])
 
     with col_kpis:
         # --- BLOQUE ACUMULADO / GLOBAL ---
         st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Anual Acumulada</div><div class="kpi-value" style="color: #10B981;">{fmt_pct(v_anual_ac)}</div><div class="kpi-subtext">Global P1 & P3</div></div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Mensual Acumulada</div><div class="kpi-value" style="color: #10B981;">{fmt_pct(v_mensual_ac)}</div><div class="kpi-subtext">Global P1 & P3</div></div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Diaria Acumulada</div><div class="kpi-value" style="color: #10B981;">{fmt_pct(v_diaria_ac)}</div><div class="kpi-subtext">Global Día: {fecha_ult}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Mensual Acumulada</div><div class="kpi-value" style="color: #10B981;">{fmt_pct(v_mensual_ac)}</div><div class="kpi-subtext">Ponderada P1 & P3</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Diaria Acumulada</div><div class="kpi-value" style="color: #10B981;">{fmt_pct(v_diaria_ac)}</div><div class="kpi-subtext">Día: {fecha_ult}</div></div>', unsafe_allow_html=True)
         
         # --- BLOQUE PLANTA 1 ---
         st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Anual P1</div><div class="kpi-value" style="color: #3B82F6;">{fmt_pct(v_anual_p1)}</div><div class="kpi-subtext">Planta 1</div></div>', unsafe_allow_html=True)
@@ -245,16 +256,19 @@ if menu == "RESUMEN":
         if not t2.empty:
             fig_line = go.Figure()
             
-            # 1. Línea principal: Calidad Diaria Acumulada
+            # Convierte porcentajes a escala 0-100 para el eje Y
+            val_y = t2['P1_P3_DIARIA'] * 100 if t2['P1_P3_DIARIA'].max() <= 1.0 else t2['P1_P3_DIARIA']
+
+            # 1. Calidad Diaria Acumulada
             fig_line.add_trace(go.Scatter(
                 x=t2['DIA'], 
-                y=t2['P1_P3_DIARIA'] * 100 if t2['P1_P3_DIARIA'].max() <= 1.0 else t2['P1_P3_DIARIA'], 
+                y=val_y, 
                 mode='lines+markers', 
                 name='Calidad Diaria Acumulada', 
                 line=dict(color='#10B981', width=3)
             ))
 
-            # 2. Línea de Meta (94.50%)
+            # 2. Línea de Meta en 94.50%
             fig_line.add_trace(go.Scatter(
                 x=t2['DIA'], 
                 y=[94.50] * len(t2), 
