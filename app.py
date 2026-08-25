@@ -4,7 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # -----------------------------------------------------------------------------
-# 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS
+# 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS CSS
 # -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="Dashboard - Sistema de Calidad",
@@ -15,24 +15,32 @@ st.set_page_config(
 
 st.markdown("""
 <style>
+    /* Fondo General */
     .main { background-color: #0F172A; color: #F8FAFC; font-family: 'Segoe UI', Roboto, sans-serif; }
     .block-container { padding: 1.5rem 2rem 2rem 2rem; }
 
-    /* BARRA LATERAL Legible */
+    /* BARRA LATERAL */
     [data-testid="stSidebar"] { 
         background-color: #1E293B !important; 
         border-right: 1px solid #334155; 
     }
-    [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {
+    
+    [data-testid="stSidebar"] p, 
+    [data-testid="stSidebar"] span, 
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] .stMarkdown {
         color: #E2E8F0 !important;
         font-weight: 500;
     }
-    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+    
+    [data-testid="stSidebar"] h1, 
+    [data-testid="stSidebar"] h2, 
+    [data-testid="stSidebar"] h3 {
         color: #FFFFFF !important;
         font-weight: 700 !important;
     }
 
-    /* Header */
+    /* Header del Dashboard */
     .dashboard-header { 
         background: linear-gradient(90deg, #1E293B 0%, #0F172A 100%); 
         padding: 20px 24px; 
@@ -49,7 +57,7 @@ st.markdown("""
         background-color: #1E293B; 
         border: 1px solid #334155; 
         border-radius: 10px; 
-        padding: 14px 12px; 
+        padding: 12px 14px; 
         text-align: center;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
         margin-bottom: 10px;
@@ -58,7 +66,7 @@ st.markdown("""
     .kpi-value { font-size: 24px; font-weight: 800; margin-bottom: 2px; }
     .kpi-subtext { font-size: 10px; color: #64748B; }
 
-    /* Cajas Contenedoras */
+    /* Cajas de Gráficos y Tablas */
     .section-box { 
         background-color: #1E293B; 
         border: 1px solid #334155; 
@@ -71,7 +79,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. PROCESAMIENTO Y CÁLCULO DE CALIDADES
+# 2. PROCESAMIENTO Y FILTRADO EXACTO DE DATOS
 # -----------------------------------------------------------------------------
 ADMIN_USER = "admin"
 ADMIN_PASSWORD = "calidad2026"
@@ -83,34 +91,31 @@ if "data_loaded" not in st.session_state:
     st.session_state.data_loaded = False
     st.session_state.tables = None
 
-def clean_dataframe(df):
-    """Limpia los encabezados superiores de Excel si existen filas vacías en el header."""
-    # Buscar la primera fila que contiene nombres de columnas reales si vienen desplazadas
-    return df.dropna(how='all').reset_index(drop=True)
-
 def process_excel(file):
     xls = pd.ExcelFile(file)
     sheet_name = 'DASHBOARD' if 'DASHBOARD' in xls.sheet_names else xls.sheet_names[0]
     df_raw = pd.read_excel(xls, sheet_name=sheet_name)
 
-    # 1. Tabla Anual (Columnas A:D -> 0 a 3)
-    t1 = df_raw.iloc[:, 0:4].dropna(how='all')
+    # 1. Tabla Anual
+    t1 = df_raw.iloc[:, 0:4].copy()
     t1.columns = ['MES', 'P1_ANUAL', 'P3_ANUAL', 'P1_P3_ANUAL']
-    # Convertir valores a numéricos ignorando encabezados
     t1['P1_ANUAL'] = pd.to_numeric(t1['P1_ANUAL'], errors='coerce')
     t1['P3_ANUAL'] = pd.to_numeric(t1['P3_ANUAL'], errors='coerce')
     t1['P1_P3_ANUAL'] = pd.to_numeric(t1['P1_P3_ANUAL'], errors='coerce')
-    t1 = t1.dropna(subset=['P1_P3_ANUAL'])
+    
+    total_gen_row = t1[t1['MES'].astype(str).str.contains("Total general", case=False, na=False)]
+    t1_meses = t1[~t1['MES'].astype(str).str.contains("Total general", case=False, na=False)].dropna(subset=['P1_P3_ANUAL'])
 
-    # 2. Tabla Diaria / Mensual (Columnas F:J -> 5 a 9)
-    t2 = df_raw.iloc[:, 5:10].dropna(how='all')
+    # 2. Tabla Diaria / Mensual
+    t2 = df_raw.iloc[:, 5:10].copy()
     t2.columns = ['DIA', 'P1_DIARIA', 'P3_DIARIA', 'P1_P3_DIARIA', 'MTS2_DIA']
     t2['P1_DIARIA'] = pd.to_numeric(t2['P1_DIARIA'], errors='coerce')
     t2['P3_DIARIA'] = pd.to_numeric(t2['P3_DIARIA'], errors='coerce')
     t2['P1_P3_DIARIA'] = pd.to_numeric(t2['P1_P3_DIARIA'], errors='coerce')
+    t2['MTS2_DIA'] = pd.to_numeric(t2['MTS2_DIA'], errors='coerce')
     t2 = t2.dropna(subset=['P1_P3_DIARIA'])
 
-    # 3. Otras Tablas
+    # 3. Resto de Tablas
     t3 = df_raw.iloc[:, 11:13].dropna(how='all'); t3.columns = ['MES_GARANTIAS', 'GARANTIAS']
     t4 = df_raw.iloc[:, 14:16].dropna(how='all'); t4.columns = ['MODELO_PRUEBA', 'HORNO_PRUEBAS']
     t5 = df_raw.iloc[:, 17:19].dropna(how='all'); t5.columns = ['MODELOS_AUTORIZADOS', 'HORNO_AUTORIZADOS']
@@ -119,17 +124,16 @@ def process_excel(file):
     t8 = df_raw.iloc[:, 28:30].dropna(how='all'); t8.columns = ['DEFECTO_P1', 'PORC_DEFECTO_P1']
     t9 = df_raw.iloc[:, 31:33].dropna(how='all'); t9.columns = ['DEFECTO_P3', 'PORC_DEFECTO_P3']
     t10 = df_raw.iloc[:, 34:36].dropna(how='all'); t10.columns = ['AREA_RESPONSABLE', 'PORC_AREA']
-    
-    return (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10)
 
-# Formateador seguro para porcentaje
+    return (t1_meses, total_gen_row, t2, t3, t4, t5, t6, t7, t8, t9, t10)
+
 def fmt_pct(val):
     if pd.isna(val) or val is None:
-        return "0.0%"
-    return f"{val * 100:.1f}%" if val <= 1.0 else f"{val:.1f}%"
+        return "0.00%"
+    return f"{val * 100:.2f}%" if val <= 1.0 else f"{val:.2f}%"
 
 # -----------------------------------------------------------------------------
-# 3. BARRA LATERAL
+# 3. NAVEGACIÓN Y PANEL LATERAL
 # -----------------------------------------------------------------------------
 with st.sidebar:
     st.markdown("## 🟩 **SISTEMA DE CALIDAD**")
@@ -178,7 +182,7 @@ with st.sidebar:
             st.rerun()
 
 # -----------------------------------------------------------------------------
-# 4. MONITOR Y VISUALIZACIÓN
+# 4. DASHBOARD Y CÁLCULOS EXACTOS
 # -----------------------------------------------------------------------------
 st.markdown("""
 <div class="dashboard-header">
@@ -188,62 +192,86 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 if not st.session_state.data_loaded:
-    st.info("ℹ️ **Por favor, carga el archivo Excel desde el menú lateral para visualizar las calidades calculadas.**")
+    st.info("ℹ️ **Por favor, ingresa tu reporte en Excel desde el panel lateral para visualizar el dashboard.**")
     st.stop()
 
-t1, t2, t3, t4, t5, t6, t7, t8, t9, t10 = st.session_state.tables
+t1_meses, total_gen_row, t2, t3, t4, t5, t6, t7, t8, t9, t10 = st.session_state.tables
 
-# -----------------------------------------------------------------------------
-# CÁLCULOS AUTOMÁTICOS DE CALIDAD SEGÚN TABLAS
-# -----------------------------------------------------------------------------
 if menu == "RESUMEN":
 
-    # --- 1. Calidad Anual (Tomada de la Tabla 1 / Histórico Anual) ---
-    v_anual_ac = t1['P1_P3_ANUAL'].mean() if not t1.empty else 0
-    v_anual_p1 = t1['P1_ANUAL'].mean() if not t1.empty else 0
-    v_anual_p3 = t1['P3_ANUAL'].mean() if not t1.empty else 0
+    # --- CÁLCULOS A 2 DECIMALES ---
+    if not total_gen_row.empty:
+        v_anual_ac = total_gen_row['P1_P3_ANUAL'].values[0]
+        v_anual_p1 = total_gen_row['P1_ANUAL'].values[0]
+        v_anual_p3 = total_gen_row['P3_ANUAL'].values[0]
+    else:
+        v_anual_ac = t1_meses['P1_P3_ANUAL'].mean() if not t1_meses.empty else 0
+        v_anual_p1 = t1_meses['P1_ANUAL'].mean() if not t1_meses.empty else 0
+        v_anual_p3 = t1_meses['P3_ANUAL'].mean() if not t1_meses.empty else 0
 
-    # --- 2. Calidad Mensual (Promedio Acumulado de la Tabla 2 / Registro Mensual) ---
     v_mensual_ac = t2['P1_P3_DIARIA'].mean() if not t2.empty else 0
     v_mensual_p1 = t2['P1_DIARIA'].mean() if not t2.empty else 0
     v_mensual_p3 = t2['P3_DIARIA'].mean() if not t2.empty else 0
 
-    # --- 3. Calidad Diaria (Tomada de la última fila capturada en la Tabla 2) ---
     ult_reg = t2.iloc[-1] if not t2.empty else None
     v_diaria_ac = ult_reg['P1_P3_DIARIA'] if ult_reg is not None else 0
     v_diaria_p1 = ult_reg['P1_DIARIA'] if ult_reg is not None else 0
     v_diaria_p3 = ult_reg['P3_DIARIA'] if ult_reg is not None else 0
-    
     fecha_ult = str(ult_reg['DIA']).split()[0] if ult_reg is not None else "N/A"
 
     # -----------------------------------------------------------------------------
-    # DESPLIEGUE DE TARJETAS VERTICALES (9 KPIS EN ORDEN)
+    # DESPLIEGUE DE TARJETAS VERTICALES
     # -----------------------------------------------------------------------------
     col_kpis, col_charts = st.columns([1, 2.3])
 
     with col_kpis:
+        # --- BLOQUE ACUMULADO / GLOBAL ---
         st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Anual Acumulada</div><div class="kpi-value" style="color: #10B981;">{fmt_pct(v_anual_ac)}</div><div class="kpi-subtext">Global P1 & P3</div></div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Anual P1</div><div class="kpi-value" style="color: #3B82F6;">{fmt_pct(v_anual_p1)}</div><div class="kpi-subtext">Planta 1</div></div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Anual P3</div><div class="kpi-value" style="color: #F59E0B;">{fmt_pct(v_anual_p3)}</div><div class="kpi-subtext">Planta 3</div></div>', unsafe_allow_html=True)
-        
         st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Mensual Acumulada</div><div class="kpi-value" style="color: #10B981;">{fmt_pct(v_mensual_ac)}</div><div class="kpi-subtext">Global P1 & P3</div></div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Mensual P1</div><div class="kpi-value" style="color: #3B82F6;">{fmt_pct(v_mensual_p1)}</div><div class="kpi-subtext">Planta 1</div></div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Mensual P3</div><div class="kpi-value" style="color: #F59E0B;">{fmt_pct(v_mensual_p3)}</div><div class="kpi-subtext">Planta 3</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Diaria Acumulada</div><div class="kpi-value" style="color: #10B981;">{fmt_pct(v_diaria_ac)}</div><div class="kpi-subtext">Global Día: {fecha_ult}</div></div>', unsafe_allow_html=True)
         
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Diaria (Último Día)</div><div class="kpi-value" style="color: #10B981;">{fmt_pct(v_diaria_ac)}</div><div class="kpi-subtext">Día: {fecha_ult}</div></div>', unsafe_allow_html=True)
+        # --- BLOQUE PLANTA 1 ---
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Anual P1</div><div class="kpi-value" style="color: #3B82F6;">{fmt_pct(v_anual_p1)}</div><div class="kpi-subtext">Planta 1</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Mensual P1</div><div class="kpi-value" style="color: #3B82F6;">{fmt_pct(v_mensual_p1)}</div><div class="kpi-subtext">Planta 1</div></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Diaria P1</div><div class="kpi-value" style="color: #3B82F6;">{fmt_pct(v_diaria_p1)}</div><div class="kpi-subtext">Día: {fecha_ult} (P1)</div></div>', unsafe_allow_html=True)
+        
+        # --- BLOQUE PLANTA 3 ---
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Anual P3</div><div class="kpi-value" style="color: #F59E0B;">{fmt_pct(v_anual_p3)}</div><div class="kpi-subtext">Planta 3</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Mensual P3</div><div class="kpi-value" style="color: #F59E0B;">{fmt_pct(v_mensual_p3)}</div><div class="kpi-subtext">Planta 3</div></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Diaria P3</div><div class="kpi-value" style="color: #F59E0B;">{fmt_pct(v_diaria_p3)}</div><div class="kpi-subtext">Día: {fecha_ult} (P3)</div></div>', unsafe_allow_html=True)
 
     with col_charts:
-        st.markdown('<div class="section-box"><div class="section-title">EVOLUCIÓN DIARIA DE LA CALIDAD (%)</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-box"><div class="section-title">EVOLUCIÓN DIARIA DE LA CALIDAD ACUMULADA (%)</div>', unsafe_allow_html=True)
         if not t2.empty:
             fig_line = go.Figure()
-            if planta_sel in ["Todas (P1 & P3)", "Planta 1 (P1)"]:
-                fig_line.add_trace(go.Scatter(x=t2['DIA'], y=t2['P1_DIARIA']*100, mode='lines+markers', name='P1 Calidad', line=dict(color='#3B82F6', width=2)))
-            if planta_sel in ["Todas (P1 & P3)", "Planta 3 (P3)"]:
-                fig_line.add_trace(go.Scatter(x=t2['DIA'], y=t2['P3_DIARIA']*100, mode='lines+markers', name='P3 Calidad', line=dict(color='#F59E0B', width=2)))
-            fig_line.add_trace(go.Scatter(x=t2['DIA'], y=t2['P1_P3_DIARIA']*100, mode='lines+markers', name='P1&P3 Global', line=dict(color='#10B981', width=3, dash='dash')))
-            fig_line.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#94A3B8'), margin=dict(l=10, r=10, t=10, b=10), xaxis=dict(showgrid=True, gridcolor='#334155', title="Día"), yaxis=dict(showgrid=True, gridcolor='#334155', title="% Calidad"), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+            
+            # 1. Línea principal: Calidad Diaria Acumulada
+            fig_line.add_trace(go.Scatter(
+                x=t2['DIA'], 
+                y=t2['P1_P3_DIARIA'] * 100 if t2['P1_P3_DIARIA'].max() <= 1.0 else t2['P1_P3_DIARIA'], 
+                mode='lines+markers', 
+                name='Calidad Diaria Acumulada', 
+                line=dict(color='#10B981', width=3)
+            ))
+
+            # 2. Línea de Meta (94.50%)
+            fig_line.add_trace(go.Scatter(
+                x=t2['DIA'], 
+                y=[94.50] * len(t2), 
+                mode='lines', 
+                name='Meta (94.50%)', 
+                line=dict(color='#EF4444', width=2, dash='dash')
+            ))
+
+            fig_line.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)', 
+                font=dict(color='#94A3B8'), 
+                margin=dict(l=10, r=10, t=10, b=10), 
+                xaxis=dict(showgrid=True, gridcolor='#334155', title="Día"), 
+                yaxis=dict(showgrid=True, gridcolor='#334155', title="% Calidad", tickformat=".2f"), 
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            )
             st.plotly_chart(fig_line, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -273,9 +301,9 @@ elif menu == "INDICADORES":
     col_ind1, col_ind2 = st.columns(2)
     with col_ind1:
         st.markdown('<div class="section-box"><div class="section-title">HISTÓRICO DE CALIDAD MES A MES</div>', unsafe_allow_html=True)
-        if not t1.empty:
-            fig_anual = px.line(t1, x='MES', y=['P1_ANUAL', 'P3_ANUAL', 'P1_P3_ANUAL'], markers=True, color_discrete_map={'P1_ANUAL': '#3B82F6', 'P3_ANUAL': '#F59E0B', 'P1_P3_ANUAL': '#10B981'})
-            fig_anual.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#94A3B8'), xaxis=dict(showgrid=True, gridcolor='#334155'), yaxis=dict(showgrid=True, gridcolor='#334155'))
+        if not t1_meses.empty:
+            fig_anual = px.line(t1_meses, x='MES', y=['P1_ANUAL', 'P3_ANUAL', 'P1_P3_ANUAL'], markers=True, color_discrete_map={'P1_ANUAL': '#3B82F6', 'P3_ANUAL': '#F59E0B', 'P1_P3_ANUAL': '#10B981'})
+            fig_anual.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#94A3B8'), xaxis=dict(showgrid=True, gridcolor='#334155'), yaxis=dict(showgrid=True, gridcolor='#334155', tickformat=".2f"))
             st.plotly_chart(fig_anual, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
     with col_ind2:
