@@ -462,7 +462,7 @@ if menu == "CALIDAD":
 elif menu == "DEFECTIVOS":
     st.markdown('<div class="kpi-section-title">📉 Análisis de Defectos y Áreas Responsables</div>', unsafe_allow_html=True)
     
-    # 1. PARETO DE DEFECTOS GENERAL
+    # 1. PARETO DE DEFECTOS GENERAL (SIN TÍTULO EN EJE Y)
     st.markdown('<div class="section-box"><div class="section-title">PARETO DE DEFECTOS GENERAL</div>', unsafe_allow_html=True)
     
     if planta_sel == "Planta 1 (P1)":
@@ -506,7 +506,7 @@ elif menu == "DEFECTIVOS":
             tickfont=dict(color='#000000', size=20, family="sans-serif", weight="bold"), 
             title=dict(text="DEFECTO", font=dict(color='#000000', size=20, family="sans-serif", weight="bold"))
         )
-        fig_def.update_yaxes(showgrid=False, showticklabels=False, range=[0, max_val * 1.35])
+        fig_def.update_yaxes(showgrid=False, showticklabels=False, title=None, range=[0, max_val * 1.35])
         st.plotly_chart(fig_def, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -597,7 +597,7 @@ elif menu == "DEFECTIVOS":
                 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # 3. DETALLE DE PARETOS P1 Y P3 (AJUSTADOS A 14PT Y SIN TÍTULO DE EJE Y)
+    # 3. DETALLE DE PARETOS P1 Y P3
     st.markdown('<div class="section-box"><div class="section-title">ANÁLISIS COMPARATIVO DE DEFECTOS: PLANTA 1 VS PLANTA 3</div>', unsafe_allow_html=True)
     c_a, c_b = st.columns(2)
     
