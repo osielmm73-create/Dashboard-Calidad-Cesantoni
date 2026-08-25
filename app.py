@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import os
 
 # -----------------------------------------------------------------------------
 # 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS
@@ -14,35 +13,96 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Estilos CSS con alto contraste para el panel lateral y componentes
 st.markdown("""
 <style>
-    .main { background-color: #0E131F; color: #FFFFFF; font-family: 'Segoe UI', Roboto, sans-serif; }
-    .block-container { padding-top: 1.5rem; padding-bottom: 2rem; padding-left: 2rem; padding-right: 2rem; }
-    [data-testid="stSidebar"] { background-color: #080B11; border-right: 1px solid #1E293B; }
-    .dashboard-header { background-color: #131B2E; padding: 16px 24px; border-radius: 12px; border-left: 5px solid #10B981; margin-bottom: 20px; }
-    .header-title { font-size: 24px; font-weight: 700; color: #FFFFFF; margin: 0; }
-    .header-subtitle { font-size: 13px; color: #94A3B8; margin: 2px 0 0 0; }
-    .kpi-card { background-color: #131B2E; border: 1px solid #1E293B; border-radius: 12px; padding: 16px; text-align: center; }
+    /* Fondo General */
+    .main { background-color: #0F172A; color: #F8FAFC; font-family: 'Segoe UI', Roboto, sans-serif; }
+    .block-container { padding: 1.5rem 2rem 2rem 2rem; }
+
+    /* BARRA LATERAL (Legibilidad Mejorada) */
+    [data-testid="stSidebar"] { 
+        background-color: #1E293B !important; 
+        border-right: 1px solid #334155; 
+    }
+    
+    /* Textos del menú lateral */
+    [data-testid="stSidebar"] p, 
+    [data-testid="stSidebar"] span, 
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] .stMarkdown {
+        color: #E2E8F0 !important;
+        font-weight: 500;
+    }
+    
+    /* Encabezados del Menú Lateral */
+    [data-testid="stSidebar"] h1, 
+    [data-testid="stSidebar"] h2, 
+    [data-testid="stSidebar"] h3 {
+        color: #FFFFFF !important;
+        font-weight: 700 !important;
+    }
+
+    /* Opciones de Radio Button */
+    [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {
+        color: #94A3B8 !important;
+        font-size: 13px !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.5px;
+    }
+
+    /* Header del Dashboard */
+    .dashboard-header { 
+        background: linear-gradient(90deg, #1E293B 0%, #0F172A 100%); 
+        padding: 20px 24px; 
+        border-radius: 12px; 
+        border-left: 6px solid #10B981; 
+        margin-bottom: 24px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    }
+    .header-title { font-size: 26px; font-weight: 800; color: #FFFFFF; margin: 0; }
+    .header-subtitle { font-size: 13px; color: #94A3B8; margin-top: 4px; }
+
+    /* Tarjetas KPI */
+    .kpi-card { 
+        background-color: #1E293B; 
+        border: 1px solid #334155; 
+        border-radius: 12px; 
+        padding: 18px; 
+        text-align: center;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    }
     .kpi-title { font-size: 11px; font-weight: 700; color: #94A3B8; text-transform: uppercase; margin-bottom: 8px; }
-    .kpi-value { font-size: 26px; font-weight: 800; margin-bottom: 4px; }
+    .kpi-value { font-size: 28px; font-weight: 800; margin-bottom: 4px; }
     .kpi-subtext { font-size: 11px; color: #64748B; }
-    .section-box { background-color: #131B2E; border: 1px solid #1E293B; border-radius: 12px; padding: 18px; margin-bottom: 15px; }
-    .section-title { font-size: 14px; font-weight: 700; color: #E2E8F0; margin-bottom: 15px; text-transform: uppercase; }
+
+    /* Cajas de Gráficos y Tablas */
+    .section-box { 
+        background-color: #1E293B; 
+        border: 1px solid #334155; 
+        border-radius: 12px; 
+        padding: 20px; 
+        margin-bottom: 20px;
+    }
+    .section-title { font-size: 14px; font-weight: 700; color: #F1F5F9; margin-bottom: 16px; text-transform: uppercase; }
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. CREDENCIALES Y FUNCIÓN LECTORA
+# 2. PROCESAMIENTO DE DATOS Y ESTADO DE SESIÓN
 # -----------------------------------------------------------------------------
 ADMIN_USER = "admin"
 ADMIN_PASSWORD = "calidad2026"
-DATA_FILE = "data_actual.xlsx"
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
-def process_data(file_source):
-    xls = pd.ExcelFile(file_source)
+if "data_loaded" not in st.session_state:
+    st.session_state.data_loaded = False
+    st.session_state.tables = None
+
+def process_excel(file):
+    xls = pd.ExcelFile(file)
     sheet_name = 'DASHBOARD' if 'DASHBOARD' in xls.sheet_names else xls.sheet_names[0]
     df_raw = pd.read_excel(xls, sheet_name=sheet_name)
     
@@ -57,63 +117,61 @@ def process_data(file_source):
     t9 = df_raw.iloc[:, 31:33].dropna(how='all'); t9.columns = ['DEFECTO_P3', 'PORC_DEFECTO_P3']
     t10 = df_raw.iloc[:, 34:36].dropna(how='all'); t10.columns = ['AREA_RESPONSABLE', 'PORC_AREA']
     
-    return t1, t2, t3, t4, t5, t6, t7, t8, t9, t10
+    return (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10)
 
 # -----------------------------------------------------------------------------
-# 3. BARRA LATERAL (AUTENTICACIÓN Y GESTIÓN)
+# 3. NAVEGACIÓN Y PANEL LATERAL
 # -----------------------------------------------------------------------------
-active_file = None
-
 with st.sidebar:
-    st.markdown("### 🟩 **SISTEMA DE CALIDAD**")
+    st.markdown("## 🟩 **SISTEMA DE CALIDAD**")
     st.caption("PISO CERÁMICO P1 & P3")
     st.markdown("---")
     
     menu = st.radio("NAVEGACIÓN", ["RESUMEN", "INDICADORES", "DEFECTOS", "MODELOS Y HORNOS"])
     st.markdown("---")
+    
     planta_sel = st.selectbox("Seleccionar Planta / Línea", ["Todas (P1 & P3)", "Planta 1 (P1)", "Planta 3 (P3)"])
     st.markdown("---")
     
     st.markdown("### 🔒 **Gestión de Archivo**")
+    
     if not st.session_state.authenticated:
-        with st.expander("Iniciar Sesión Admin"):
-            user_input = st.text_input("Usuario", key="u_input")
-            pass_input = st.text_input("Contraseña", type="password", key="p_input")
-            if st.button("Ingresar"):
-                if user_input == ADMIN_USER and pass_input == ADMIN_PASSWORD:
+        with st.expander("🔑 Iniciar Sesión Admin"):
+            u_in = st.text_input("Usuario")
+            p_in = st.text_input("Contraseña", type="password")
+            if st.button("Ingresar", type="primary"):
+                if u_in == ADMIN_USER and p_in == ADMIN_PASSWORD:
                     st.session_state.authenticated = True
-                    st.success("Sesión iniciada")
+                    st.success("Sesión activa")
                     st.rerun()
                 else:
-                    st.error("Credenciales incorrectas")
+                    st.error("Credenciales erróneas")
     else:
         st.success("🟢 Sesión Admin Activa")
         
-        uploaded_file = st.file_uploader("Subir Excel", type=["xlsx", "xls"])
+        uploaded_file = st.file_uploader("Cargar Reporte Excel", type=["xlsx", "xls"])
         
         if uploaded_file is not None:
-            active_file = uploaded_file
-            # Guardar en disco automáticamente para que persista
-            with open(DATA_FILE, "wb") as f:
-                f.write(uploaded_file.getbuffer())
+            try:
+                st.session_state.tables = process_excel(uploaded_file)
+                st.session_state.data_loaded = True
+                st.success("¡Datos procesados correctamente!")
+            except Exception as err:
+                st.error(f"Error en la estructura del archivo: {err}")
         
-        if os.path.exists(DATA_FILE) or uploaded_file is not None:
-            if st.button("🗑️ Eliminar/Resetear Datos"):
-                if os.path.exists(DATA_FILE):
-                    os.remove(DATA_FILE)
-                st.warning("Archivo eliminado. Cargue uno nuevo.")
+        if st.session_state.data_loaded:
+            if st.button("🗑️ Resetear Datos Cargados"):
+                st.session_state.data_loaded = False
+                st.session_state.tables = None
+                st.warning("Datos eliminados de la sesión.")
                 st.rerun()
-
+                
         if st.button("Cerrar Sesión"):
             st.session_state.authenticated = False
             st.rerun()
 
-# Si no hay archivo recién cargado en memoria, usar el guardado en disco
-if active_file is None and os.path.exists(DATA_FILE):
-    active_file = DATA_FILE
-
 # -----------------------------------------------------------------------------
-# 4. DESPLIEGUE DEL DASHBOARD
+# 4. MONITOR Y VISUALIZACIÓN
 # -----------------------------------------------------------------------------
 st.markdown("""
 <div class="dashboard-header">
@@ -122,17 +180,12 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-if active_file is None:
-    st.warning("⚠️ No hay datos cargados.")
-    st.info("Por favor, sube el archivo Excel en la barra lateral izquierda.")
+if not st.session_state.data_loaded:
+    st.info("ℹ️ **No se han desplegado los indicadores.** Por favor, inicia sesión en la barra lateral e ingresa tu reporte en Excel para visualizar el dashboard.")
     st.stop()
 
-# Cargar las tablas de datos
-try:
-    t1, t2, t3, t4, t5, t6, t7, t8, t9, t10 = process_data(active_file)
-except Exception as e:
-    st.error(f"Error al procesar la estructura del Excel: {e}")
-    st.stop()
+# Recuperar tablas del estado de sesión
+t1, t2, t3, t4, t5, t6, t7, t8, t9, t10 = st.session_state.tables
 
 # -----------------------------------------------------------------------------
 # VISTA: RESUMEN GENERAL
@@ -189,7 +242,7 @@ if menu == "RESUMEN":
         if planta_sel in ["Todas (P1 & P3)", "Planta 3 (P3)"]:
             fig_line.add_trace(go.Scatter(x=t2['DIA'], y=t2['P3_DIARIA']*100, mode='lines+markers', name='P3 Calidad', line=dict(color='#F59E0B', width=2)))
         fig_line.add_trace(go.Scatter(x=t2['DIA'], y=t2['P1_P3_DIARIA']*100, mode='lines+markers', name='P1&P3 Global', line=dict(color='#10B981', width=3, dash='dash')))
-        fig_line.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#94A3B8'), margin=dict(l=10, r=10, t=10, b=10), xaxis=dict(showgrid=True, gridcolor='#1E293B', title="Día"), yaxis=dict(showgrid=True, gridcolor='#1E293B', title="% Calidad"), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+        fig_line.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#94A3B8'), margin=dict(l=10, r=10, t=10, b=10), xaxis=dict(showgrid=True, gridcolor='#334155', title="Día"), yaxis=dict(showgrid=True, gridcolor='#334155', title="% Calidad"), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
         st.plotly_chart(fig_line, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -202,21 +255,21 @@ elif menu == "INDICADORES":
         st.markdown('<div class="section-box"><div class="section-title">HISTÓRICO DE CALIDAD MES A MES</div>', unsafe_allow_html=True)
         if not t1.empty:
             fig_anual = px.line(t1, x='MES', y=['P1_ANUAL', 'P3_ANUAL', 'P1_P3_ANUAL'], markers=True, color_discrete_map={'P1_ANUAL': '#3B82F6', 'P3_ANUAL': '#F59E0B', 'P1_P3_ANUAL': '#10B981'})
-            fig_anual.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#94A3B8'), xaxis=dict(showgrid=True, gridcolor='#1E293B'), yaxis=dict(showgrid=True, gridcolor='#1E293B'))
+            fig_anual.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#94A3B8'), xaxis=dict(showgrid=True, gridcolor='#334155'), yaxis=dict(showgrid=True, gridcolor='#334155'))
             st.plotly_chart(fig_anual, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
     with col_ind2:
         st.markdown('<div class="section-box"><div class="section-title">GARANTÍAS RECLAMADAS POR MES</div>', unsafe_allow_html=True)
         if not t3.empty:
             fig_gar = px.bar(t3, x='MES_GARANTIAS', y='GARANTIAS', text='GARANTIAS', color_discrete_sequence=['#EF4444'])
-            fig_gar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#94A3B8'), xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor='#1E293B'))
+            fig_gar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#94A3B8'), xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor='#334155'))
             st.plotly_chart(fig_gar, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="section-box"><div class="section-title">CUMPLIMIENTO DE TONO EN PRODUCCIÓN</div>', unsafe_allow_html=True)
     if not t6.empty:
         fig_tono = px.bar(t6, x='FECHA', y=['CUMP_P1', 'CUMP_P3', 'CUMP_ACUMULADO'], barmode='group', color_discrete_sequence=['#3B82F6', '#F59E0B', '#10B981'])
-        fig_tono.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#94A3B8'), xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor='#1E293B'))
+        fig_tono.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#94A3B8'), xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor='#334155'))
         st.plotly_chart(fig_tono, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
