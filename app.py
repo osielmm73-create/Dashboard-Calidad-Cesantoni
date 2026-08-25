@@ -187,13 +187,16 @@ def process_excel(file_source):
     t5.columns = ['MODELOS_AUTORIZADOS', 'HORNO_AUTORIZADOS']
     t5 = t5.dropna(subset=['MODELOS_AUTORIZADOS'])
 
-    # Tabla 6: Cumplimiento de Tono (Cols U:X)
-    t6 = df_raw.iloc[:, 20:24].dropna(how='all')
+    # Tabla 6: Cumplimiento de Tono (Cols U:X) - PROCESAMIENTO RIGUROSO
+    t6 = df_raw.iloc[:, 20:24].copy()
     t6.columns = ['FECHA', 'CUMP_P1', 'CUMP_P3', 'CUMP_ACUMULADO']
     t6['CUMP_P1'] = pd.to_numeric(t6['CUMP_P1'], errors='coerce')
     t6['CUMP_P3'] = pd.to_numeric(t6['CUMP_P3'], errors='coerce')
     t6['CUMP_ACUMULADO'] = pd.to_numeric(t6['CUMP_ACUMULADO'], errors='coerce')
-    t6_clean = t6.dropna(subset=['FECHA']).copy()
+    
+    # Filtrar solo registros con al menos un valor numérico válido en cumplimientos y fecha existente
+    t6_clean = t6.dropna(subset=['CUMP_P1', 'CUMP_P3', 'CUMP_ACUMULADO'], how='all').copy()
+    t6_clean = t6_clean[t6_clean['FECHA'].notna() & (t6_clean['FECHA'].astype(str).str.strip() != '')]
 
     t7 = df_raw.iloc[:, 25:27].dropna(how='all'); t7.columns = ['DEFECTO', 'PORC_DEFECTO']
     t8 = df_raw.iloc[:, 28:30].dropna(how='all'); t8.columns = ['DEFECTO_P1', 'PORC_DEFECTO_P1']
@@ -299,7 +302,6 @@ t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6, t7, t8, t
 # =============================================================================
 if menu == "CALIDAD":
 
-    # --- DATOS KPI ---
     if not total_gen_row.empty:
         v_anual_ac = total_gen_row['P1_P3_ANUAL'].values[0]
         v_anual_p1 = total_gen_row['P1_ANUAL'].values[0]
@@ -326,7 +328,6 @@ if menu == "CALIDAD":
         v_diaria_ac = v_diaria_p1 = v_diaria_p3 = 0
         fecha_ult = "N/A"
 
-    # --- KPI CARDS SUPERIORES ---
     st.markdown('<div class="kpi-section-title">📊 Calidad Anual</div>', unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -354,7 +355,6 @@ if menu == "CALIDAD":
     with d3:
         st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Diaria P3</div><div class="kpi-value" style="color: #F59E0B;">{fmt_pct(v_diaria_p3)}</div><div class="kpi-subtext">Día P3</div></div>', unsafe_allow_html=True)
 
-    # --- CALIDAD POR HORNO (TABLA 11 AL:AP) ---
     st.markdown('<div class="kpi-section-title">🔥 Calidad por Horno (Último Registro)</div>', unsafe_allow_html=True)
     if not t11.empty:
         ult_horno_row = t11.iloc[-1]
@@ -375,7 +375,6 @@ if menu == "CALIDAD":
 
     st.markdown("---")
 
-    # --- GRÁFICA COMBINADA ---
     st.markdown('<div class="section-box"><div class="section-title">EVOLUCIÓN DIARIA: CALIDAD (%) VS PRODUCCIÓN DE METROS CUADRADOS (M²)</div>', unsafe_allow_html=True)
     if not t2_dias.empty:
         t2_dias['DIA_STR'] = t2_dias['DIA'].astype(str).str.split().str[0]
@@ -384,7 +383,6 @@ if menu == "CALIDAD":
 
         fig_mix = make_subplots(specs=[[{"secondary_y": True}]])
 
-        # 1. Columnas m² (Gris tenue con borde marcado)
         fig_mix.add_trace(
             go.Bar(
                 x=t2_dias['DIA_STR'],
@@ -401,7 +399,6 @@ if menu == "CALIDAD":
             secondary_y=True
         )
 
-        # 2. Línea Calidad Diaria (%) 
         fig_mix.add_trace(
             go.Scatter(
                 x=t2_dias['DIA_STR'],
@@ -414,7 +411,6 @@ if menu == "CALIDAD":
             secondary_y=False
         )
 
-        # Agregar etiquetas de texto por encima de los puntos
         for x_val, y_val in zip(t2_dias['DIA_STR'], y_calidad):
             if pd.notna(y_val):
                 fig_mix.add_annotation(
@@ -428,7 +424,6 @@ if menu == "CALIDAD":
                     yref="y"
                 )
 
-        # 3. Línea Meta 94.50%
         fig_mix.add_trace(
             go.Scatter(
                 x=t2_dias['DIA_STR'],
@@ -485,7 +480,6 @@ if menu == "CALIDAD":
 elif menu == "DEFECTIVOS":
     st.markdown('<div class="kpi-section-title">📉 Análisis de Defectos y Áreas Responsables</div>', unsafe_allow_html=True)
     
-    # 1. PARETO DE DEFECTOS GENERAL
     st.markdown('<div class="section-box"><div class="section-title">PARETO DE DEFECTOS GENERAL</div>', unsafe_allow_html=True)
     
     if planta_sel == "Planta 1 (P1)":
@@ -533,7 +527,6 @@ elif menu == "DEFECTIVOS":
         st.plotly_chart(fig_def, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # 2. TARJETAS KPI ILUSTRADAS A COLOR (ESTILO INDUSTRIA CERÁMICA - SVG VECTORIAL)
     st.markdown('<div class="section-box"><div class="section-title">DISTRIBUCIÓN POR ÁREA RESPONSABLE</div>', unsafe_allow_html=True)
     
     SVG_PRENSAS = """
@@ -620,7 +613,6 @@ elif menu == "DEFECTIVOS":
                 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # 3. DETALLE DE PARETOS P1 Y P3
     st.markdown('<div class="section-box"><div class="section-title">ANÁLISIS COMPARATIVO DE DEFECTOS: PLANTA 1 VS PLANTA 3</div>', unsafe_allow_html=True)
     c_a, c_b = st.columns(2)
     
@@ -708,13 +700,19 @@ elif menu == "DEFECTIVOS":
 elif menu == "TONOS":
     st.markdown('<div class="kpi-section-title">🎨 Cumplimiento y Control de Tonos</div>', unsafe_allow_html=True)
     
-    # Obtener valores del último registro disponible
+    # Obtener datos validando que existan registros limpios
     if not t6.empty:
         ult_row = t6.iloc[-1]
         v_cump_p1 = ult_row['CUMP_P1']
         v_cump_p3 = ult_row['CUMP_P3']
         v_cump_acum = ult_row['CUMP_ACUMULADO']
-        fecha_val = str(ult_row['FECHA']).split()[0]
+        
+        # Formateo adecuado de la fecha sin mostrar horas en cero si es tipo Timestamp o str
+        fecha_raw = ult_row['FECHA']
+        if isinstance(fecha_raw, pd.Timestamp):
+            fecha_val = fecha_raw.strftime('%d/%m/%Y')
+        else:
+            fecha_val = str(fecha_raw).split()[0]
     else:
         v_cump_p1 = v_cump_p3 = v_cump_acum = 0
         fecha_val = "N/A"
@@ -748,7 +746,6 @@ elif menu == "TONOS":
 
     st.markdown("---")
 
-    # Tablas de Modelos en Horno
     col_m1, col_m2 = st.columns(2)
     with col_m1:
         st.markdown('<div class="section-box"><div class="section-title">🧪 MODELOS DE PRUEBA EN HORNO</div>', unsafe_allow_html=True)
