@@ -90,7 +90,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. PROCESAMIENTO Y LECTURA DE DATOS EXCEL (CÁLCULOS SIN MODIFICACIÓN)
+# 2. PROCESAMIENTO Y LECTURA DE DATOS EXCEL (TUS CÁLCULOS 100% INTACTOS)
 # -----------------------------------------------------------------------------
 ADMIN_USER = "admin"
 ADMIN_PASSWORD = "calidad2026"
@@ -305,7 +305,7 @@ if menu == "CALIDAD":
 
     st.markdown("---")
 
-    # --- GRÁFICA CORREGIDA: SIN CUADRÍCULA Y ETIQUETAS SEPARADAS ---
+    # --- GRÁFICA CORREGIDA ---
     st.markdown('<div class="section-box"><div class="section-title">EVOLUCIÓN DIARIA: CALIDAD (%) VS PRODUCCIÓN DE METROS CUADRADOS (M²)</div>', unsafe_allow_html=True)
     if not t2_dias.empty:
         t2_dias['DIA_STR'] = t2_dias['DIA'].astype(str).str.split().str[0]
@@ -314,7 +314,7 @@ if menu == "CALIDAD":
 
         fig_mix = make_subplots(specs=[[{"secondary_y": True}]])
 
-        # 1. Columnas m² en Azul Grisáceo Tenue - Texto adentro al fondo (Eje Y2)
+        # 1. Columnas m² (Eje Y2)
         fig_mix.add_trace(
             go.Bar(
                 x=t2_dias['DIA_STR'],
@@ -325,13 +325,12 @@ if menu == "CALIDAD":
                 marker_line_width=1,
                 text=[fmt_num(v) for v in y_mts2],
                 textposition="inside",
-                insidetextanchor="bottom",
                 textfont=dict(color="#94A3B8", size=9)
             ),
             secondary_y=True
         )
 
-        # 2. Línea Calidad Diaria (%) en Verde Neón con Texto Arriba (Eje Y1)
+        # 2. Línea Calidad Diaria (%) (Eje Y1)
         fig_mix.add_trace(
             go.Scatter(
                 x=t2_dias['DIA_STR'],
@@ -342,11 +341,7 @@ if menu == "CALIDAD":
                 textposition="top center",
                 textfont=dict(color="#10B981", size=9),
                 line=dict(color="#10B981", width=3),
-                marker=dict(
-                    size=8, 
-                    color="#10B981", 
-                    line=dict(color="#064E3B", width=1)
-                )
+                marker=dict(size=8, color="#10B981", line=dict(color="#064E3B", width=1))
             ),
             secondary_y=False
         )
@@ -363,12 +358,10 @@ if menu == "CALIDAD":
             secondary_y=False
         )
 
-        # Rango vertical holgado
         min_val = float(y_calidad.min()) if not y_calidad.empty and pd.notna(y_calidad.min()) else 70.0
         y_min_bound = float(min(min_val - 6.0, 60.0))
         max_mts2 = float(y_mts2.max()) if not y_mts2.empty and pd.notna(y_mts2.max()) else 20000.0
 
-        # Estilo General y Eliminación de Cuadrícula
         fig_mix.update_layout(
             height=540,
             paper_bgcolor="rgba(0,0,0,0)",
@@ -378,7 +371,6 @@ if menu == "CALIDAD":
             legend=dict(orientation="h", yanchor="bottom", y=1.04, xanchor="right", x=1)
         )
 
-        # Configuración Eje X sin cuadrícula
         fig_mix.update_xaxes(
             type="category",
             tickangle=-45,
@@ -386,7 +378,6 @@ if menu == "CALIDAD":
             title_text="Días del Mes"
         )
 
-        # Eje Y Primario (% Calidad) sin cuadrícula
         fig_mix.update_yaxes(
             title_text="% Calidad",
             showgrid=False,
@@ -395,7 +386,6 @@ if menu == "CALIDAD":
             secondary_y=False
         )
 
-        # Eje Y Secundario (m²) sin cuadrícula
         fig_mix.update_yaxes(
             title_text="Metros Cuadrados (m²)",
             showgrid=False,
