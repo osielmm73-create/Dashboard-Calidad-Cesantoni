@@ -52,13 +52,13 @@ st.markdown("""
     .header-title { font-size: 26px; font-weight: 800; color: #FFFFFF; margin: 0; }
     .header-subtitle { font-size: 13px; color: #94A3B8; margin-top: 4px; }
 
-    /* Tarjetas KPI Horizontales Superior */
+    /* Tarjetas KPI */
     .kpi-section-title {
         font-size: 12px;
         font-weight: 800;
         color: #94A3B8;
         text-transform: uppercase;
-        margin-top: 6px;
+        margin-top: 10px;
         margin-bottom: 8px;
         letter-spacing: 0.5px;
     }
@@ -106,7 +106,7 @@ def process_excel(file):
     sheet_name = 'DASHBOARD' if 'DASHBOARD' in xls.sheet_names else xls.sheet_names[0]
     df_raw = pd.read_excel(xls, sheet_name=sheet_name)
 
-    # 1. Tabla Anual
+    # 1. Tabla Anual (Cols A:D)
     t1 = df_raw.iloc[:, 0:4].copy()
     t1.columns = ['MES', 'P1_ANUAL', 'P3_ANUAL', 'P1_P3_ANUAL']
     t1['P1_ANUAL'] = pd.to_numeric(t1['P1_ANUAL'], errors='coerce')
@@ -116,7 +116,7 @@ def process_excel(file):
     total_gen_row = t1[t1['MES'].astype(str).str.contains("Total general", case=False, na=False)]
     t1_meses = t1[~t1['MES'].astype(str).str.contains("Total general", case=False, na=False)].dropna(subset=['P1_P3_ANUAL'])
 
-    # 2. Tabla Diaria / Mensual
+    # 2. Tabla Diaria / Mensual (Cols F:J)
     t2 = df_raw.iloc[:, 5:10].copy()
     t2.columns = ['DIA', 'P1_DIARIA', 'P3_DIARIA', 'P1_P3_DIARIA', 'MTS2_DIA']
     t2['P1_DIARIA'] = pd.to_numeric(t2['P1_DIARIA'], errors='coerce')
@@ -124,11 +124,10 @@ def process_excel(file):
     t2['P1_P3_DIARIA'] = pd.to_numeric(t2['P1_P3_DIARIA'], errors='coerce')
     t2['MTS2_DIA'] = pd.to_numeric(t2['MTS2_DIA'], errors='coerce')
     
-    # Separar fila resumen mensual de los días individuales
     resumen_mensual_row = t2[t2['DIA'].astype(str).str.contains("Total|Mensual|Promedio", case=False, na=False)]
     t2_dias = t2[~t2['DIA'].astype(str).str.contains("Total|Mensual|Promedio", case=False, na=False)].dropna(subset=['P1_P3_DIARIA'])
 
-    # 3. Resto de Tablas
+    # 3. Otras Tablas
     t3 = df_raw.iloc[:, 11:13].dropna(how='all'); t3.columns = ['MES_GARANTIAS', 'GARANTIAS']
     t4 = df_raw.iloc[:, 14:16].dropna(how='all'); t4.columns = ['MODELO_PRUEBA', 'HORNO_PRUEBAS']
     t5 = df_raw.iloc[:, 17:19].dropna(how='all'); t5.columns = ['MODELOS_AUTORIZADOS', 'HORNO_AUTORIZADOS']
@@ -138,7 +137,13 @@ def process_excel(file):
     t9 = df_raw.iloc[:, 31:33].dropna(how='all'); t9.columns = ['DEFECTO_P3', 'PORC_DEFECTO_P3']
     t10 = df_raw.iloc[:, 34:36].dropna(how='all'); t10.columns = ['AREA_RESPONSABLE', 'PORC_AREA']
 
-    return (t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6, t7, t8, t9, t10)
+    # 4. Tabla 11: Calidad por Horno (Cols AL:AP -> Índices 37:42)
+    t11 = df_raw.iloc[:, 37:42].dropna(how='all').copy()
+    if not t11.empty:
+        t11.columns = ['HORNO', 'CALIDAD_HORNO', 'MTS_HORNO', 'META_HORNO', 'ESTADO_HORNO']
+        t11['CALIDAD_HORNO'] = pd.to_numeric(t11['CALIDAD_HORNO'], errors='coerce')
+
+    return (t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6, t7, t8, t9, t10, t11)
 
 def fmt_pct(val):
     if pd.isna(val) or val is None:
@@ -146,7 +151,7 @@ def fmt_pct(val):
     return f"{val * 100:.2f}%" if val <= 1.0 else f"{val:.2f}%"
 
 # -----------------------------------------------------------------------------
-# 3. NAVEGACIÓN Y PANEL LATERAL
+# 3. PANEL LATERAL
 # -----------------------------------------------------------------------------
 with st.sidebar:
     st.markdown("## 🟩 **SISTEMA DE CALIDAD**")
@@ -195,7 +200,7 @@ with st.sidebar:
             st.rerun()
 
 # -----------------------------------------------------------------------------
-# 4. DASHBOARD PRINCIPAL
+# 4. DASHBOARD PRINCIPAL - PÁGINA: RESUMEN (SOLO CALIDAD)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <div class="dashboard-header">
@@ -208,11 +213,11 @@ if not st.session_state.data_loaded:
     st.info("ℹ️ **Por favor, ingresa tu reporte en Excel desde el panel lateral para visualizar el dashboard.**")
     st.stop()
 
-t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6, t7, t8, t9, t10 = st.session_state.tables
+t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6, t7, t8, t9, t10, t11 = st.session_state.tables
 
 if menu == "RESUMEN":
 
-    # --- A) CALIDAD ANUAL ---
+    # --- DATOS KPI ---
     if not total_gen_row.empty:
         v_anual_ac = total_gen_row['P1_P3_ANUAL'].values[0]
         v_anual_p1 = total_gen_row['P1_ANUAL'].values[0]
@@ -222,19 +227,13 @@ if menu == "RESUMEN":
         v_anual_p1 = t1_meses['P1_ANUAL'].iloc[-1] if not t1_meses.empty else 0
         v_anual_p3 = t1_meses['P3_ANUAL'].iloc[-1] if not t1_meses.empty else 0
 
-    # --- B) CALIDAD MENSUAL (Leída directamente de la tabla/fila de resumen acumulado del mes) ---
     if not resumen_mensual_row.empty:
         v_mensual_ac = resumen_mensual_row['P1_P3_DIARIA'].values[0]
         v_mensual_p1 = resumen_mensual_row['P1_DIARIA'].values[0]
         v_mensual_p3 = resumen_mensual_row['P3_DIARIA'].values[0]
     else:
-        # Ponderación por m2 si no hay fila explícita
-        total_mts = t2_dias['MTS2_DIA'].sum() if 'MTS2_DIA' in t2_dias.columns and t2_dias['MTS2_DIA'].sum() > 0 else 1
-        v_mensual_ac = (t2_dias['P1_P3_DIARIA'] * t2_dias.get('MTS2_DIA', 1)).sum() / total_mts if not t2_dias.empty else 0
-        v_mensual_p1 = (t2_dias['P1_DIARIA'] * t2_dias.get('MTS2_DIA', 1)).sum() / total_mts if not t2_dias.empty else 0
-        v_mensual_p3 = (t2_dias['P3_DIARIA'] * t2_dias.get('MTS2_DIA', 1)).sum() / total_mts if not t2_dias.empty else 0
+        v_mensual_ac = v_mensual_p1 = v_mensual_p3 = 0
 
-    # --- C) CALIDAD DIARIA (Tomada de la última fila de registro diario del Excel) ---
     if not t2_dias.empty:
         ult_dia = t2_dias.iloc[-1]
         v_diaria_ac = ult_dia['P1_P3_DIARIA']
@@ -245,9 +244,7 @@ if menu == "RESUMEN":
         v_diaria_ac = v_diaria_p1 = v_diaria_p3 = 0
         fecha_ult = "N/A"
 
-    # -----------------------------------------------------------------------------
-    # PARTE SUPERIOR: TARJETAS KPI ORGANIZADAS POR FILA (ANUAL, MENSUAL, DIARIO)
-    # -----------------------------------------------------------------------------
+    # --- KPI CARDS SUPERIORES ---
     st.markdown('<div class="kpi-section-title">📊 Calidad Anual</div>', unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -266,7 +263,7 @@ if menu == "RESUMEN":
     with m3:
         st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Mensual P3</div><div class="kpi-value" style="color: #F59E0B;">{fmt_pct(v_mensual_p3)}</div><div class="kpi-subtext">Planta 3</div></div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="kpi-section-title">⏱️ Calidad Diaria (Último Día: ' + fecha_ult + ')</div>', unsafe_allow_html=True)
+    st.markdown('<div class="kpi-section-title">⏱️ Calidad Diaria (Día: ' + fecha_ult + ')</div>', unsafe_allow_html=True)
     d1, d2, d3 = st.columns(3)
     with d1:
         st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Diaria Acumulada</div><div class="kpi-value" style="color: #10B981;">{fmt_pct(v_diaria_ac)}</div><div class="kpi-subtext">Global Día P1 & P3</div></div>', unsafe_allow_html=True)
@@ -275,18 +272,32 @@ if menu == "RESUMEN":
     with d3:
         st.markdown(f'<div class="kpi-card"><div class="kpi-title">Calidad Diaria P3</div><div class="kpi-value" style="color: #F59E0B;">{fmt_pct(v_diaria_p3)}</div><div class="kpi-subtext">Día P3</div></div>', unsafe_allow_html=True)
 
+    # --- NUEVA SECCIÓN: 4 KPI CARDS DE CALIDAD POR HORNO (TABLA 11 AL:AP) ---
+    st.markdown('<div class="kpi-section-title">🔥 Calidad por Horno (Tabla 11)</div>', unsafe_allow_html=True)
+    if not t11.empty:
+        cols_h = st.columns(min(len(t11), 4))
+        colors = ['#3B82F6', '#F59E0B', '#10B981', '#EC4899']
+        for idx, row in t11.head(4).iterrows():
+            horno_nombre = str(row['HORNO'])
+            calidad_val = row['CALIDAD_HORNO']
+            col_color = colors[idx % len(colors)]
+            with cols_h[idx]:
+                st.markdown(f'''
+                    <div class="kpi-card">
+                        <div class="kpi-title">{horno_nombre}</div>
+                        <div class="kpi-value" style="color: {col_color};">{fmt_pct(calidad_val)}</div>
+                        <div class="kpi-subtext">Calidad Horno</div>
+                    </div>
+                ''', unsafe_allow_html=True)
+
     st.markdown("---")
 
-    # -----------------------------------------------------------------------------
-    # SECCIÓN DE GRÁFICOS
-    # -----------------------------------------------------------------------------
+    # --- GRÁFICA DE EVOLUCIÓN DIARIA ---
     st.markdown('<div class="section-box"><div class="section-title">EVOLUCIÓN DIARIA DE LA CALIDAD ACUMULADA (%)</div>', unsafe_allow_html=True)
     if not t2_dias.empty:
         fig_line = go.Figure()
-        
         y_values = t2_dias['P1_P3_DIARIA'] * 100 if t2_dias['P1_P3_DIARIA'].max() <= 1.0 else t2_dias['P1_P3_DIARIA']
 
-        # 1. Línea de Calidad Diaria con ETIQUETAS DE DATOS
         fig_line.add_trace(go.Scatter(
             x=t2_dias['DIA'], 
             y=y_values, 
@@ -299,7 +310,6 @@ if menu == "RESUMEN":
             marker=dict(size=7)
         ))
 
-        # 2. Línea de Meta (94.50%)
         fig_line.add_trace(go.Scatter(
             x=t2_dias['DIA'], 
             y=[94.50] * len(t2_dias), 
@@ -320,7 +330,7 @@ if menu == "RESUMEN":
         st.plotly_chart(fig_line, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Pareto y Distribución por área abajo
+    # --- PARETO Y ÁREA RESPONSIBLE ---
     col_sub1, col_sub2 = st.columns(2)
     with col_sub1:
         st.markdown('<div class="section-box"><div class="section-title">PARETO DE DEFECTOS</div>', unsafe_allow_html=True)
@@ -341,7 +351,7 @@ if menu == "RESUMEN":
         st.markdown('</div>', unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# OTRAS VISTAS
+# RESTO DE PÁGINAS (INDICADORES, DEFECTOS, MODELOS Y HORNOS)
 # -----------------------------------------------------------------------------
 elif menu == "INDICADORES":
     col_ind1, col_ind2 = st.columns(2)
