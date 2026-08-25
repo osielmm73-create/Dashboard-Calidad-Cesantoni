@@ -215,10 +215,15 @@ def process_excel(file_source):
     t12 = df_raw.iloc[:, 43:49].dropna(how='all').copy()
     t12.columns = ['FECHA', 'MODELO', 'TONO_ASIGNADO', 'RESPONSABLE', 'FORMATO', 'HORNO']
     t12 = t12.dropna(subset=['MODELO'])
-    # Formatear fecha si aplica
     t12['FECHA'] = t12['FECHA'].apply(lambda x: x.strftime('%d/%m/%Y') if isinstance(x, (pd.Timestamp, pd.DatetimeIndex)) else str(x).split()[0] if pd.notna(x) else "N/A")
 
-    return (t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6_clean, t7, t8, t9, t10, t11_clean, t12)
+    # 6. Tabla 13: Detalle de Garantías (Cols AY:BD -> Índices 50 a 55)
+    t13 = df_raw.iloc[:, 50:56].dropna(how='all').copy()
+    t13.columns = ['FECHA_GARANTIA', 'MODELO_GARANTIA', 'FORMATO_GARANTIA', 'LOTE_GARANTIA', 'TONO_GARANTIA', 'MOTIVO_GARANTIA']
+    t13 = t13.dropna(subset=['MODELO_GARANTIA'])
+    t13['FECHA_GARANTIA'] = t13['FECHA_GARANTIA'].apply(lambda x: x.strftime('%d/%m/%Y') if isinstance(x, (pd.Timestamp, pd.DatetimeIndex)) else str(x).split()[0] if pd.notna(x) else "N/A")
+
+    return (t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6_clean, t7, t8, t9, t10, t11_clean, t12, t13)
 
 @st.cache_data(show_spinner=False)
 def load_and_process(file_bytes):
@@ -301,7 +306,7 @@ if not st.session_state.get("data_loaded", False):
     st.info("ℹ️ **Por favor, ingresa tu reporte en Excel desde el panel lateral para visualizar el dashboard.**")
     st.stop()
 
-t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12 = st.session_state.tables
+t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13 = st.session_state.tables
 
 # =============================================================================
 # HOJA 1: CALIDAD
@@ -816,23 +821,67 @@ elif menu == "TONOS":
 elif menu == "GARANTÍAS":
     st.markdown('<div class="kpi-section-title">🛡️ Reclamaciones y Garantías</div>', unsafe_allow_html=True)
     
-    col_g1, col_g2 = st.columns([2, 1])
-    with col_g1:
-        st.markdown('<div class="section-box"><div class="section-title">GARANTÍAS RECLAMADAS POR MES</div>', unsafe_allow_html=True)
-        if not t3.empty:
-            fig_gar = px.bar(t3, x='MES_GARANTIAS', y='GARANTIAS', text='GARANTIAS', color_discrete_sequence=['#EF4444'])
-            fig_gar.update_layout(
-                height=450,
-                paper_bgcolor='rgba(0,0,0,0)', 
-                plot_bgcolor='rgba(0,0,0,0)', 
-                font_color='#94A3B8'
-            )
-            fig_gar.update_xaxes(showgrid=False)
-            fig_gar.update_yaxes(showgrid=True, gridcolor='#334155')
-            st.plotly_chart(fig_gar, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+    # 1. Gráfica Ampliada
+    st.markdown('<div class="section-box"><div class="section-title">GARANTÍAS RECLAMADAS POR MES</div>', unsafe_allow_html=True)
+    if not t3.empty:
+        fig_gar = px.bar(
+            t3, 
+            x='MES_GARANTIAS', 
+            y='GARANTIAS', 
+            text='GARANTIAS', 
+            color_discrete_sequence=['#94A3B8']  # Gris tenue
+        )
         
-    with col_g2:
-        st.markdown('<div class="section-box"><div class="section-title">DATOS DE GARANTÍAS</div>', unsafe_allow_html=True)
-        st.dataframe(t3, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        max_val_gar = t3['GARANTIAS'].max() if not t3.empty else 10.0
+        
+        fig_gar.update_traces(
+            textposition='outside',
+            textfont=dict(color='#000000', size=18, family="sans-serif", weight="bold"),  # Etiqueta de datos 18pt negro
+            marker_line_color='#64748B',
+            marker_line_width=1
+        )
+        
+        fig_gar.update_layout(
+            height=550,  # Gráfica más grande
+            paper_bgcolor='rgba(0,0,0,0)', 
+            plot_bgcolor='rgba(0,0,0,0)', 
+            font_color='#94A3B8',
+            margin=dict(l=15, r=15, t=50, b=15)
+        )
+        
+        fig_gar.update_xaxes(
+            showgrid=False,
+            tickfont=dict(color='#000000', size=14, family="sans-serif", weight="bold"),  # Texto del eje X en negro
+            title=None
+        )
+        
+        fig_gar.update_yaxes(
+            showgrid=True, 
+            gridcolor='#334155',
+            range=[0, max_val_gar * 1.25]
+        )
+        
+        st.plotly_chart(fig_gar, use_container_width=True)
+    else:
+        st.caption("No hay datos de garantías por mes disponibles.")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # 2. Tabla Inferior de Registros Detallados (AY:BD)
+    st.markdown('<div class="section-box"><div class="section-title">📋 REGISTRO DETALLADO DE GARANTÍAS CAPTURADAS</div>', unsafe_allow_html=True)
+    if not t13.empty:
+        st.dataframe(
+            t13,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "FECHA_GARANTIA": "Fecha",
+                "MODELO_GARANTIA": "Modelo",
+                "FORMATO_GARANTIA": "Formato",
+                "LOTE_GARANTIA": "Lote",
+                "TONO_GARANTIA": "Tono",
+                "MOTIVO_GARANTIA": "Motivo de Garantía"
+            }
+        )
+    else:
+        st.caption("No hay registros capturados en la tabla de garantías (AY:BD).")
+    st.markdown('</div>', unsafe_allow_html=True)
