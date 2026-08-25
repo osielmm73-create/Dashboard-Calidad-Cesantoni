@@ -416,13 +416,13 @@ if menu == "CALIDAD":
         
         h1, h2, h3, h4_col = st.columns(4)
         with h1:
-            st.markdown(f'<div class="kpi-card"><div class="kpi-title">Horno 1 (H1)</div><div class="kpi-value" style="color: #3B82F6;">{fmt_pct(v_h1)}</div><div class="kpi-subtext"></div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="kpi-card"><div class="kpi-title">Horno 1 </div><div class="kpi-value" style="color: #3B82F6;">{fmt_pct(v_h1)}</div><div class="kpi-subtext"></div></div>', unsafe_allow_html=True)
         with h2:
-            st.markdown(f'<div class="kpi-card"><div class="kpi-title">Horno 4 (H4)</div><div class="kpi-value" style="color: #F59E0B;">{fmt_pct(v_h4)}</div><div class="kpi-subtext"></div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="kpi-card"><div class="kpi-title">Horno 4 </div><div class="kpi-value" style="color: #F59E0B;">{fmt_pct(v_h4)}</div><div class="kpi-subtext"></div></div>', unsafe_allow_html=True)
         with h3:
-            st.markdown(f'<div class="kpi-card"><div class="kpi-title">Horno 5 (H5)</div><div class="kpi-value" style="color: #10B981;">{fmt_pct(v_h5)}</div><div class="kpi-subtext"></div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="kpi-card"><div class="kpi-title">Horno 5 </div><div class="kpi-value" style="color: #10B981;">{fmt_pct(v_h5)}</div><div class="kpi-subtext"></div></div>', unsafe_allow_html=True)
         with h4_col:
-            st.markdown(f'<div class="kpi-card"><div class="kpi-title">Horno 6 (H6)</div><div class="kpi-value" style="color: #EC4899;">{fmt_pct(v_h6)}</div><div class="kpi-subtext"></div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="kpi-card"><div class="kpi-title">Horno 6 </div><div class="kpi-value" style="color: #EC4899;">{fmt_pct(v_h6)}</div><div class="kpi-subtext"></div></div>', unsafe_allow_html=True)
 
     st.markdown("---")
 
@@ -668,7 +668,7 @@ elif menu == "DEFECTIVOS":
     c_a, c_b = st.columns(2)
     
     with c_a:
-        st.subheader("Pareto Defectos Planta 1 (P1)")
+        st.subheader("Pareto Defectos Planta 1 ")
         if not t8.empty:
             df_p1 = t8.dropna(subset=['DEFECTO_P1', 'PORC_DEFECTO_P1']).copy()
             df_p1['VAL_PCT'] = df_p1['PORC_DEFECTO_P1'].apply(lambda x: x * 100 if x <= 1.0 else x)
@@ -706,7 +706,7 @@ elif menu == "DEFECTIVOS":
             st.plotly_chart(fig_p1, use_container_width=True)
 
     with c_b:
-        st.subheader("Pareto Defectos Planta 3 (P3)")
+        st.subheader("Pareto Defectos Planta 3 ")
         if not t9.empty:
             df_p3 = t9.dropna(subset=['DEFECTO_P3', 'PORC_DEFECTO_P3']).copy()
             df_p3['VAL_PCT'] = df_p3['PORC_DEFECTO_P3'].apply(lambda x: x * 100 if x <= 1.0 else x)
