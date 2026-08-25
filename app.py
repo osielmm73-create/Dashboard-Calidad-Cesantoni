@@ -54,7 +54,7 @@ st.markdown("""
     .header-title { font-size: 26px; font-weight: 800; color: #FFFFFF; margin: 0; }
     .header-subtitle { font-size: 13px; color: #94A3B8; margin-top: 4px; }
 
-    /* Tarjetas KPI */
+    /* Tarjetas KPI Generales */
     .kpi-section-title {
         font-size: 12px;
         font-weight: 800;
@@ -88,44 +88,43 @@ st.markdown("""
     }
     .section-title { font-size: 14px; font-weight: 700; color: #F1F5F9; margin-bottom: 16px; text-transform: uppercase; }
 
-    /* Tarjetas KPI Ilustradas de Áreas */
-    .area-kpi-card {
-        background-color: #1E293B;
-        border: 1px solid #334155;
-        border-radius: 10px;
-        padding: 14px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    /* TARJETAS KPI ILUSTRADAS ESTILO CUADRÍCULA (ÁREAS RESPONSABLES) */
+    .grid-kpi-card {
+        background-color: #FFFFFF;
+        border: 1px solid #CBD5E1;
+        border-radius: 12px;
+        padding: 16px 12px;
+        text-align: center;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        margin-bottom: 16px;
     }
-    .area-icon {
-        font-size: 28px;
-        background-color: #0F172A;
-        width: 48px;
-        height: 48px;
-        border-radius: 8px;
+    .grid-kpi-title {
+        font-size: 11px;
+        font-weight: 800;
+        color: #1E293B;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+    }
+    .grid-kpi-icon {
+        font-size: 34px;
+        margin: 6px 0;
+        line-height: 1;
+    }
+    .grid-kpi-footer {
         display: flex;
         align-items: center;
         justify-content: center;
-        border: 1px solid #334155;
+        gap: 6px;
+        margin-top: 6px;
     }
-    .area-info {
-        flex-grow: 1;
-        margin-left: 12px;
-    }
-    .area-name {
-        font-size: 11px;
-        font-weight: 700;
-        color: #94A3B8;
-        text-transform: uppercase;
-    }
-    .area-val {
-        font-size: 20px;
+    .grid-kpi-val {
+        font-size: 18px;
         font-weight: 800;
-        color: #38BDF8;
     }
+    .dot-green { color: #22C55E; font-size: 14px; }
+    .dot-yellow { color: #F59E0B; font-size: 14px; }
+    .dot-red { color: #EF4444; font-size: 14px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -461,90 +460,106 @@ if menu == "CALIDAD":
 elif menu == "DEFECTIVOS":
     st.markdown('<div class="kpi-section-title">📉 Análisis de Defectos y Áreas Responsables</div>', unsafe_allow_html=True)
     
-    col_sub1, col_sub2 = st.columns([1.6, 1])
+    # 1. PARETO DE DEFECTOS (VERTICAL Y LEGIBLE)
+    st.markdown('<div class="section-box"><div class="section-title">PARETO DE DEFECTOS</div>', unsafe_allow_html=True)
     
-    with col_sub1:
-        st.markdown('<div class="section-box"><div class="section-title">PARETO DE DEFECTOS</div>', unsafe_allow_html=True)
+    if planta_sel == "Planta 1 (P1)":
+        df_def = t8.rename(columns={'DEFECTO_P1': 'DEFECTO', 'PORC_DEFECTO_P1': 'PORC_DEFECTO'}).copy()
+    elif planta_sel == "Planta 3 (P3)":
+        df_def = t9.rename(columns={'DEFECTO_P3': 'DEFECTO', 'PORC_DEFECTO_P3': 'PORC_DEFECTO'}).copy()
+    else:
+        df_def = t7.copy()
         
-        # Selección de datos por planta
-        if planta_sel == "Planta 1 (P1)":
-            df_def = t8.rename(columns={'DEFECTO_P1': 'DEFECTO', 'PORC_DEFECTO_P1': 'PORC_DEFECTO'}).copy()
-        elif planta_sel == "Planta 3 (P3)":
-            df_def = t9.rename(columns={'DEFECTO_P3': 'DEFECTO', 'PORC_DEFECTO_P3': 'PORC_DEFECTO'}).copy()
-        else:
-            df_def = t7.copy()
-            
-        if not df_def.empty:
-            df_def = df_def.dropna(subset=['DEFECTO', 'PORC_DEFECTO'])
-            df_def = df_def.sort_values(by='PORC_DEFECTO', ascending=False)
-            
-            # Gráfico de barras VERTICAL
-            fig_def = px.bar(
-                df_def, 
-                x='DEFECTO', 
-                y='PORC_DEFECTO', 
-                text=df_def['PORC_DEFECTO'].apply(lambda x: fmt_pct(x)), 
-                color_discrete_sequence=['#3B82F6']
-            )
-            fig_def.update_traces(
-                textposition='outside',
-                textfont=dict(color='#F8FAFC', size=14, family="sans-serif")
-            )
-            fig_def.update_layout(
-                height=520,
-                paper_bgcolor='rgba(0,0,0,0)', 
-                plot_bgcolor='rgba(0,0,0,0)', 
-                font_color='#94A3B8', 
-                margin=dict(l=10, r=10, t=30, b=10)
-            )
-            fig_def.update_xaxes(showgrid=False, tickangle=-45, tickfont=dict(color='#E2E8F0', size=11))
-            fig_def.update_yaxes(showgrid=False, visible=False)
-            st.plotly_chart(fig_def, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+    if not df_def.empty:
+        df_def = df_def.dropna(subset=['DEFECTO', 'PORC_DEFECTO'])
+        df_def = df_def.sort_values(by='PORC_DEFECTO', ascending=False)
+        
+        fig_def = px.bar(
+            df_def, 
+            x='DEFECTO', 
+            y='PORC_DEFECTO', 
+            text=df_def['PORC_DEFECTO'].apply(lambda x: fmt_pct(x)), 
+            color_discrete_sequence=['#3B82F6']
+        )
+        fig_def.update_traces(
+            textposition='outside',
+            textfont=dict(color='#F8FAFC', size=13, family="sans-serif")
+        )
+        
+        # Margen superior amplio (t=60) y rango extendido para evitar corte de texto
+        max_val = df_def['PORC_DEFECTO'].max() if not df_def.empty else 1.0
+        fig_def.update_layout(
+            height=480,
+            paper_bgcolor='rgba(0,0,0,0)', 
+            plot_bgcolor='rgba(0,0,0,0)', 
+            font_color='#94A3B8', 
+            margin=dict(l=10, r=10, t=60, b=10)
+        )
+        fig_def.update_xaxes(showgrid=False, tickangle=-45, tickfont=dict(color='#E2E8F0', size=11))
+        fig_def.update_yaxes(showgrid=False, visible=False, range=[0, max_val * 1.25])
+        st.plotly_chart(fig_def, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    with col_sub2:
-        st.markdown('<div class="section-box"><div class="section-title">DISTRIBUCIÓN POR ÁREA RESPONSABLE</div>', unsafe_allow_html=True)
+    # 2. TARJETAS KPI ILUSTRADAS (ESTILO CUADRÍCULA 4 COLUMNAS)
+    st.markdown('<div class="section-box"><div class="section-title">DISTRIBUCIÓN POR ÁREA RESPONSABLE</div>', unsafe_allow_html=True)
+    
+    ICONOS_AREAS = {
+        "LÍNEAS DE ESMALTADO": "🎨",
+        "RECTIFICADO": "📐",
+        "SELECCIÓN & EMPAQUE": "📦",
+        "SELECCION & EMPAQUE": "📦",
+        "MTTO": "🛠️",
+        "MANTENIMIENTO": "🛠️",
+        "MOLIENDA Y PREPARACIÓN DE ESMALTES": "🧪",
+        "PREPARACIÓN DE ESMALTES": "🧪",
+        "HORNOS": "🔥",
+        "TMA": "⚙️",
+        "PRENSAS": "🧱",
+        "PULIDO": "✨",
+        "CARACTERÍSTICAS DEL PRODUCTO": "🔍",
+        "CARACTERISTICAS DEL PRODUCTO": "🔍"
+    }
+
+    if not t10.empty:
+        df_area = t10.dropna(subset=['AREA_RESPONSABLE', 'PORC_AREA']).copy()
+        df_area = df_area[df_area['PORC_AREA'] > 0].sort_values(by='PORC_AREA', ascending=False)
         
-        # Mapa de íconos por área de proceso cerámico
-        ICONOS_AREAS = {
-            "LÍNEAS DE ESMALTADO": "🎨",
-            "RECTIFICADO": "📐",
-            "SELECCIÓN & EMPAQUE": "📦",
-            "SELECCION & EMPAQUE": "📦",
-            "MTTO": "🛠️",
-            "MANTENIMIENTO": "🛠️",
-            "MOLIENDA Y PREPARACIÓN DE ESMALTES": "🧪",
-            "PREPARACIÓN DE ESMALTES": "🧪",
-            "HORNOS": "🔥",
-            "TMA": "⚙️",
-            "PRENSAS": "🧱",
-            "PULIDO": "✨",
-            "CARACTERÍSTICAS DEL PRODUCTO": "🔍",
-            "CARACTERISTICAS DEL PRODUCTO": "🔍"
-        }
-        
-        if not t10.empty:
-            df_area = t10.dropna(subset=['AREA_RESPONSABLE', 'PORC_AREA']).copy()
-            df_area = df_area[df_area['PORC_AREA'] > 0].sort_values(by='PORC_AREA', ascending=False)
+        # Grid de 4 columnas
+        cols = st.columns(4)
+        for idx, (_, row) in enumerate(df_area.iterrows()):
+            area_name = str(row['AREA_RESPONSABLE']).strip().upper()
+            val_raw = row['PORC_AREA']
+            val_pct = fmt_pct(val_raw)
+            icon = ICONOS_AREAS.get(area_name, "🏭")
             
-            # Renderizado de KPI Cards Ilustradas en lugar de la dona
-            for _, row in df_area.iterrows():
-                area_name = str(row['AREA_RESPONSABLE']).strip().upper()
-                val_pct = fmt_pct(row['PORC_AREA'])
-                icon = ICONOS_AREAS.get(area_name, "🏭")
-                
+            # Semáforo de color según el porcentaje de defecto del área
+            val_num = val_raw * 100 if val_raw <= 1.0 else val_raw
+            if val_num < 5.0:
+                dot_class = "dot-green"
+                text_color = "#15803D"
+            elif val_num < 15.0:
+                dot_class = "dot-yellow"
+                text_color = "#D97706"
+            else:
+                dot_class = "dot-red"
+                text_color = "#B91C1C"
+
+            col_target = cols[idx % 4]
+            with col_target:
                 st.markdown(f"""
-                <div class="area-kpi-card">
-                    <div class="area-icon">{icon}</div>
-                    <div class="area-info">
-                        <div class="area-name">{area_name}</div>
-                        <div class="area-val">{val_pct}</div>
+                <div class="grid-kpi-card">
+                    <div class="grid-kpi-title">{area_name}</div>
+                    <div class="grid-kpi-icon">{icon}</div>
+                    <div class="grid-kpi-footer">
+                        <span class="{dot_class}">●</span>
+                        <span class="grid-kpi-val" style="color: {text_color};">{val_pct}</span>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
                 
-        st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
+    # 3. TABLAS DE DETALLE
     st.markdown('<div class="section-box"><div class="section-title">DETALLE DE TABLAS DE DEFECTOS</div>', unsafe_allow_html=True)
     c_a, c_b = st.columns(2)
     with c_a:
