@@ -344,13 +344,18 @@ if menu == "CALIDAD":
                 mode="lines+markers+text",
                 name="Calidad Diaria (%)",
                 text=[f"<b>{v:.2f}%</b>" for v in y_calidad],
-                textposition="top center",    # Etiqueta orientada verticalmente sobre el punto
-                textangle=-90,                # Transpuesta a 90 grados
-                textfont=dict(color="#000000", size=18, family="sans-serif"),
+                textposition="top center",
+                textfont=dict(color="#000000", size=16, family="sans-serif"),
                 line=dict(color="#000000", width=3),
                 marker=dict(size=7, color="#000000", line=dict(color="#FFFFFF", width=1))
             ),
             secondary_y=False
+        )
+
+        # Aplicar la rotación de 90 grados de forma segura
+        fig_mix.update_traces(
+            textangle=-90, 
+            selector=dict(name="Calidad Diaria (%)")
         )
 
         # 3. Línea Meta 94.50%
@@ -370,7 +375,7 @@ if menu == "CALIDAD":
         max_mts2 = float(y_mts2.max()) if not y_mts2.empty and pd.notna(y_mts2.max()) else 20000.0
 
         fig_mix.update_layout(
-            height=600,                       # Ligeramente más alta para dar espacio a la rotación
+            height=600,
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             font_color="#94A3B8",
