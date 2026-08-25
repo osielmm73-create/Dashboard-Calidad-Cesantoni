@@ -2,273 +2,343 @@ import os
 import pandas as pd
 import streamlit as st
 
-# 1. Configuración inicial de la página (Debe ser lo primero)
+# 1. Configuración de página en modo wide
 st.set_page_config(
     page_title="CALIDAD P1&P3 - CESANTONI", page_icon="📊", layout="wide"
 )
 
-# 2. Inicializar variables de sesión para autenticación y datos
+# 2. Inicializar estado de sesión
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 if "df_dashboard" not in st.session_state:
     st.session_state["df_dashboard"] = None
 if "uploaded_file_name" not in st.session_state:
     st.session_state["uploaded_file_name"] = None
+if "menu_activo" not in st.session_state:
+    st.session_state["menu_activo"] = "RESUMEN"
 
-# 3. Estilos CSS personalizados para simular la interfaz de la imagen
+# 3. Estilos CSS Avanzados para replicar el diseño de la imagen exacta
 st.markdown(
     """
     <style>
-        /* Ocultar elementos predeterminados de Streamlit para limpieza visual */
+        /* Ocultar elementos predeterminados de Streamlit */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
+        header {visibility: hidden;}
         
-        /* Estilo general del fondo */
-        .block-container {
-            padding-top: 1rem;
-            padding-bottom: 1rem;
-            padding-left: 1rem;
-            padding-right: 1rem;
+        /* Fondo general de la aplicación */
+        .stApp {
+            background-color: #f4f6f9;
         }
 
-        /* Tarjetas de métricas superiores estilo dashboard */
-        .metric-card {
-            background-color: #ffffff;
-            border: 1px solid #e0e0e0;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            text-align: center;
+        /* Forzar un diseño compacto en el contenedor principal */
+        .block-container {
+            padding-top: 0rem !important;
+            padding-bottom: 1rem !important;
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+
+        /* Simular la barra lateral oscura de la imagen mediante inyección o diseño compacto */
+        section[data-testid="stSidebar"] {
+            background-color: #1a2228 !important;
+            color: white !important;
+            width: 220px !important;
         }
         
-        /* Estilos de títulos de sección */
-        .section-title {
-            font-size: 1.1rem;
+        section[data-testid="stSidebar"] .stMarkdown, 
+        section[data-testid="stSidebar"] label, 
+        section[data-testid="stSidebar"] span {
+            color: #ffffff !important;
+        }
+
+        /* Tarjetas de métricas superiores idénticas a la referencia */
+        .metric-card {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            padding: 12px;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        
+        .metric-title {
+            font-size: 0.70rem;
             font-weight: bold;
-            color: #333333;
+            color: #64748b;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value-green { font-size: 1.4rem; font-weight: 800; color: #16a34a; }
+        .metric-value-red { font-size: 1.4rem; font-weight: 800; color: #dc2626; }
+        .metric-value-orange { font-size: 1.4rem; font-weight: 800; color: #d97706; }
+        .metric-value-blue { font-size: 1.4rem; font-weight: 800; color: #2563eb; }
+
+        .metric-meta {
+            font-size: 0.65rem;
+            color: #94a3b8;
+        }
+
+        /* Contenedores de paneles (Paneles blancos con bordes sutiles) */
+        .dashboard-panel {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+        
+        .panel-title {
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: #1e293b;
             margin-bottom: 10px;
+            text-transform: uppercase;
         }
     </style>
 """,
     unsafe_allow_html=True,
 )
 
-# 4. BARRA LATERAL (Sidebar)
+# 4. BARRA LATERAL (Simulando el menú vertical oscuro de la imagen)
 with st.sidebar:
-    # Logo corporativo
     logo_path = "logo_cesantoni.png"
     if os.path.exists(logo_path):
-        st.image(
-            logo_path, width=160
-        )  # Tamaño bien proporcionado para la barra
+        st.image(logo_path, width=120)
     else:
-        st.warning("⚠️ No se encontró 'logo_cesantoni.png' en la carpeta.")
+        st.markdown(
+            "### **CESANTONI**"
+        )  # Texto de respaldo si falta la imagen
 
     st.markdown("---")
-    st.markdown("### 🎛️ MENÚ DE NAVEGACIÓN")
-    menu_opcion = st.radio(
-        "Ir a:",
-        [
-            "RESUMEN",
-            "INDICADORES",
-            "DEFECTOS",
-            "PROCESOS",
-            "EMBARQUES",
-            "ACCIONES",
-            "AUDITORÍAS",
-        ],
+    st.markdown(
+        "<p style='font-size:0.75rem; color:#94a3b8;'>NAVEGACIÓN</p>",
+        unsafe_allow_html=True,
     )
 
+    # Botones de navegación estilo menú lateral de la imagen
+    opciones = [
+        "🏠 RESUMEN",
+        "📊 INDICADORES",
+        "📋 DEFECTOS",
+        "🏭 PROCESOS",
+        "📦 EMBARQUES",
+        "⚙️ ACCIONES",
+        "👥 AUDITORÍAS",
+    ]
+
+    seleccion = st.radio("Menú principal", opciones, label_visibility="collapsed")
+    st.session_state["menu_activo"] = seleccion.split(" ")[1]
+
     st.markdown("---")
-    st.markdown("### 🔐 PANEL DE ADMINISTRACIÓN")
+    st.markdown("### 🔐 ACCESO ADMIN")
 
-    # Sistema de Login / Logout
     if not st.session_state["authenticated"]:
-        with st.form("login_form"):
-            usuario = st.text_input("Usuario")
-            password = st.text_input("Contraseña", type="password")
-            submit_login = st.form_submit_button("Iniciar Sesión")
-
-            if submit_login:
-                # Credenciales de ejemplo (cámbialas por las tuyas de seguridad)
-                if usuario == "admin" and password == "cesantoni2026":
+        with st.form("login_admin"):
+            user = st.text_input("Usuario")
+            pwd = st.text_input("Contraseña", type="password")
+            entrar = st.form_submit_button("Entrar")
+            if entrar:
+                if user == "admin" and pwd == "cesantoni2026":
                     st.session_state["authenticated"] = True
-                    st.success("¡Sesión iniciada con éxito!")
                     st.rerun()
                 else:
-                    st.error("Usuario o contraseña incorrectos")
+                    st.error("Credenciales inválidas")
     else:
-        st.success("🟢 Modo Administrador Activo")
-
-        # Botón de reinicio de sesión (Solo activo si inició sesión)
-        if st.button("Cerrar Sesión / Reiniciar"):
+        st.success("✔ Modo Administrador")
+        # Botón de reinicio que solo se activa al iniciar sesión
+        if st.button("🔄 Reiniciar Sesión"):
             st.session_state["authenticated"] = False
             st.session_state["df_dashboard"] = None
             st.session_state["uploaded_file_name"] = None
-            st.success("Sesión cerrada correctamente.")
             st.rerun()
 
         st.markdown("---")
-        st.markdown("### 📁 CARGA DE ARCHIVO EXCEL")
-        archivo_subido = st.file_uploader(
-            "Subir reporte de calidad", type=["xlsx", "xls"]
+        archivo = st.file_uploader(
+            "Subir Excel (.xlsx)", type=["xlsx"], key="excel_uploader"
         )
-
-        if archivo_subido is not None:
+        if archivo is not None:
             try:
-                # Leer el archivo buscando específicamente la hoja "DASHBOARD"
-                xls = pd.ExcelFile(archivo_subido)
+                xls = pd.ExcelFile(archivo)
                 if "DASHBOARD" in xls.sheet_names:
-                    df = pd.read_excel(archivo_subido, sheet_name="DASHBOARD")
-                    st.session_state["df_dashboard"] = df
-                    st.session_state["uploaded_file_name"] = (
-                        archivo_subido.name
+                    st.session_state["df_dashboard"] = pd.read_excel(
+                        archivo, sheet_name="DASHBOARD"
                     )
-                    st.success(
-                        f"Hoja 'DASHBOARD' cargada desde: {archivo_subido.name}"
-                    )
+                    st.session_state["uploaded_file_name"] = archivo.name
+                    st.success("Hoja 'DASHBOARD' cargada.")
                 else:
-                    st.error(
-                        "El archivo Excel no contiene una hoja llamada 'DASHBOARD'."
-                    )
+                    st.error("El archivo no tiene la hoja 'DASHBOARD'.")
             except Exception as e:
-                st.error(f"Error al leer el archivo: {e}")
+                st.error(f"Error: {e}")
 
-# 5. CUERPO PRINCIPAL DEL DASHBOARD
-# Encabezado principal solicitado
-st.title("CALIDAD P1&P3")
-st.markdown("##### Todos somos calidad | CESANTONI SA de CV")
-st.markdown("---")
+# 5. ENCABEZADO PRINCIPAL DE LA VISTA (Header superior estilo barra gris clara)
+col_head1, col_head2 = st.columns([4, 1])
+with col_head1:
+    st.markdown(
+        """
+        <div style="background-color: #1e293b; color: white; padding: 12px 20px; border-radius: 6px; margin-bottom: 15px;">
+            <h3 style="margin: 0; font-size: 1.2rem; font-weight: 700; color: white;">CALIDAD P1&P3</h3>
+            <p style="margin: 0; font-size: 0.75rem; color: #cbd5e1;">Todos somos calidad | CESANTONI SA de CV</p>
+        </div>
+    """,
+        unsafe_allow_html=True,
+    )
+with col_head2:
+    st.markdown(
+        """
+        <div style="background-color: #ffffff; border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px; text-align: center; margin-bottom: 15px;">
+            <span style="font-size: 0.7rem; color: #64748b;">📅 19/05/2026 &nbsp;|&nbsp; 🔍 Filtro: Todos</span>
+        </div>
+    """,
+        unsafe_allow_html=True,
+    )
 
-# Indicador del archivo activo actual para espectadores y admin
+# Indicador de archivo activo
 if st.session_state["uploaded_file_name"]:
-    st.info(
-        f"📄 Mostrando datos basados en el archivo del administrador: **{st.session_state['uploaded_file_name']}**"
-    )
-else:
-    st.warning(
-        "⚠️ Ningún archivo cargado por el administrador. Mostrando datos de ejemplo/vacíos."
+    st.caption(
+        f"📂 Archivo activo en uso: **{st.session_state['uploaded_file_name']}**"
     )
 
-# 6. DISTRIBUCIÓN DE CONTENIDO SEGÚN LA PESTAÑA SELECCIONADA
-if menu_opcion == "RESUMEN":
+# 6. CONTENIDO SEGÚN LA PESTAÑA ACTIVA
+pestana = st.session_state["menu_activo"]
 
-    # Fila 1: Tarjetas de Métricas Superiores (Simulando la referencia visual)
-    col1, col2, col3, col4, col5, col6 = st.columns(6)
+if pestana == "RESUMEN":
+    # FILA 1: Las 6 tarjetas superiores de métricas exactas a la imagen
+    m1, m2, m3, m4, m5, m6 = st.columns(6)
 
-    with col1:
+    with m1:
         st.markdown(
-            """<div class="metric-card">
-            <span style="font-size: 0.8rem; color: gray;">CALIDAD DE PRIMERA</span><br>
-            <span style="font-size: 1.3rem; font-weight: bold; color: #2e7d32;">96.8 %</span><br>
-            <span style="font-size: 0.7rem; color: gray;">Meta ≥ 95%</span>
-        </div>""",
+            """
+            <div class="metric-card">
+                <div class="metric-title">CALIDAD DE PRIMERA</div>
+                <div class="metric-value-green">96.8 %</div>
+                <div class="metric-meta">Meta ≥ 95%</div>
+            </div>
+        """,
             unsafe_allow_html=True,
         )
-    with col2:
+    with m2:
         st.markdown(
-            """<div class="metric-card">
-            <span style="font-size: 0.8rem; color: gray;">RECHAZO</span><br>
-            <span style="font-size: 1.3rem; font-weight: bold; color: #c62828;">2.1 %</span><br>
-            <span style="font-size: 0.7rem; color: gray;">Meta ≤ 2%</span>
-        </div>""",
+            """
+            <div class="metric-card">
+                <div class="metric-title">RECHAZO</div>
+                <div class="metric-value-red">2.1 %</div>
+                <div class="metric-meta">Meta ≤ 2%</div>
+            </div>
+        """,
             unsafe_allow_html=True,
         )
-    with col3:
+    with m3:
         st.markdown(
-            """<div class="metric-card">
-            <span style="font-size: 0.8rem; color: gray;">RETRABAJO</span><br>
-            <span style="font-size: 1.3rem; font-weight: bold; color: #ef6c00;">1.1 %</span><br>
-            <span style="font-size: 0.7rem; color: gray;">Meta ≤ 1%</span>
-        </div>""",
+            """
+            <div class="metric-card">
+                <div class="metric-title">RETRABAJO</div>
+                <div class="metric-value-orange">1.1 %</div>
+                <div class="metric-meta">Meta ≤ 1%</div>
+            </div>
+        """,
             unsafe_allow_html=True,
         )
-    with col4:
+    with m4:
         st.markdown(
-            """<div class="metric-card">
-            <span style="font-size: 0.8rem; color: gray;">PRODUCTO LIBERADO</span><br>
-            <span style="font-size: 1.3rem; font-weight: bold; color: #1565c0;">98.4 %</span><br>
-            <span style="font-size: 0.7rem; color: gray;">Meta ≥ 98%</span>
-        </div>""",
+            """
+            <div class="metric-card">
+                <div class="metric-title">PRODUCTO LIBERADO</div>
+                <div class="metric-value-blue">98.4 %</div>
+                <div class="metric-meta">Meta ≥ 98%</div>
+            </div>
+        """,
             unsafe_allow_html=True,
         )
-    with col5:
+    with m5:
         st.markdown(
-            """<div class="metric-card">
-            <span style="font-size: 0.8rem; color: gray;">RECLAMOS CLIENTE</span><br>
-            <span style="font-size: 1.3rem; font-weight: bold; color: #c62828;">4</span><br>
-            <span style="font-size: 0.7rem; color: gray;">Meta ≤ 3</span>
-        </div>""",
+            """
+            <div class="metric-card">
+                <div class="metric-title">RECLAMOS CLIENTE</div>
+                <div class="metric-value-red">4</div>
+                <div class="metric-meta">Meta ≤ 3</div>
+            </div>
+        """,
             unsafe_allow_html=True,
         )
-    with col6:
+    with m6:
         st.markdown(
-            """<div class="metric-card">
-            <span style="font-size: 0.8rem; color: gray;">AUDITORÍAS CUMPLIDAS</span><br>
-            <span style="font-size: 1.3rem; font-weight: bold; color: #2e7d32;">94 %</span><br>
-            <span style="font-size: 0.7rem; color: gray;">Meta ≥ 95%</span>
-        </div>""",
+            """
+            <div class="metric-card">
+                <div class="metric-title">AUDITORÍAS CUMPLIDAS</div>
+                <div class="metric-value-green">94 %</div>
+                <div class="metric-meta">Meta ≥ 95%</div>
+            </div>
+        """,
             unsafe_allow_html=True,
         )
 
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # Fila 2: Visualización de datos de la hoja de Excel si existe
+    # FILA 2: Paneles centrales (Si hay datos de Excel los muestra, sino muestra la estructura visual limpia)
     if st.session_state["df_dashboard"] is not None:
-        st.markdown("### 📊 Datos procesados de la hoja 'DASHBOARD'")
+        st.markdown(
+            '<div class="dashboard-panel">', unsafe_allow_html=True
+        )
+        st.markdown(
+            '<div class="panel-title">📊 DATOS DE LA HOJA "DASHBOARD"</div>',
+            unsafe_allow_html=True,
+        )
         st.dataframe(
             st.session_state["df_dashboard"], use_container_width=True
         )
-
-        # Ejemplo de gráfico rápido basado en las columnas del Excel cargado
-        df_data = st.session_state["df_dashboard"]
-        if len(df_data.columns) >= 2:
-            st.markdown("### 📈 Gráfico Rápido Generado del Archivo")
-            try:
-                # Intenta graficar las dos primeras columnas si son numéricas/texto
-                st.bar_chart(df_data.set_index(df_data.columns[0]))
-            except Exception:
-                st.info(
-                    "No se pudo generar un gráfico automático, asegúrate de que la estructura de la hoja tenga datos numéricos y categóricos."
-                )
+        st.markdown("</div>", unsafe_allow_html=True)
     else:
-        # Contenedor visual estático simbiótico a la imagen mientras no haya archivo
-        col_A, col_B = st.columns([2, 1])
-        with col_A:
+        c_p1, c_p2, c_p3 = st.columns([1.2, 1, 1.2])
+
+        with c_p1:
             st.markdown(
                 """
-                <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0;">
-                    <h4>PARETO DE DEFECTOS (MES ACTUAL)</h4>
-                    <p style="color: gray; font-size: 0.9rem;">Esperando archivo de Excel del Administrador para mapear defectos...</p>
-                    <ul>
-                        <li>Mancha superficial: 32%</li>
-                        <li>Planitud: 24%</li>
-                        <li>Variación de tono: 18%</li>
-                        <li>Canto / escuadra: 12%</li>
+                <div class="dashboard-panel">
+                    <div class="panel-title">Pareto de Defectos (Mes Actual)</div>
+                    <p style="font-size:0.75rem; color:#64748b;">(Sube tu archivo Excel para poblar automáticamente)</p>
+                    <ul style="font-size:0.8rem; padding-left: 15px; color:#334155;">
+                        <li><b>Mancha superficial:</b> 32%</li>
+                        <li><b>Planitud:</b> 24%</li>
+                        <li><b>Variación de tono:</b> 18%</li>
+                        <li><b>Canto / escuadra:</b> 12%</li>
+                        <li><b>Ruptura:</b> 8%</li>
                     </ul>
                 </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        with col_B:
-            st.markdown(
-                """
-                <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0;">
-                    <h4>ESTADO DEL SISTEMA</h4>
-                    <p>🔒 <b>Modo Espectador:</b> Solo lectura.</p>
-                    <p>🔑 Inicia sesión en el panel lateral como administrador para actualizar los registros mediante tu archivo Excel.</p>
-                </div>
-                """,
+            """,
                 unsafe_allow_html=True,
             )
 
+        with c_p2:
+            st.markdown(
+                """
+                <div class="dashboard-panel" style="text-align: center;">
+                    <div class="panel-title">Distribución de Defectos</div>
+                    <div style="font-size: 2rem; font-weight: bold; color: #1e293b; margin-top: 20px;">1,248</div>
+                    <div style="font-size: 0.75rem; color: #64748b; margin-bottom: 20px;">Total Defectos Detectados</div>
+                </div>
+            """,
+                unsafe_allow_html=True,
+            )
+
+        with c_p3:
+            st.markdown(
+                """
+                <div class="dashboard-panel">
+                    <div class="panel-title">Calidad por Proceso (% Primera)</div>
+                    <table style="width:100%; font-size:0.75rem; text-align:center;">
+                        <tr><td>Prensado: <b>98.2%</b></td><td>Secado: <b>97.6%</b></td></tr>
+                        <tr><td>Esmaltado: <b>94.8%</b></td><td>Decoración: <b>95.1%</b></td></tr>
+                        <tr><td>Horno: <span style="color:red;">91.7%</span></td><td>Selección: <b>98.5%</b></td></tr>
+                    </table>
+                </div>
+            """,
+                unsafe_allow_html=True,
+            )
 else:
-    # Secciones adicionales correspondientes al menú lateral
-    st.markdown(
-        f"### Sección: {menu_opcion}"
-    )
+    st.markdown(f"### Módulo: {pestana}")
     st.info(
-        f"Apartado de {menu_opcion} en desarrollo. Aquí se mostrarán los detalles específicos de este módulo utilizando la información de la hoja DASHBOARD."
+        "Sección configurada para reflejar los datos de tu archivo de calidad."
     )
     if st.session_state["df_dashboard"] is not None:
         st.dataframe(
