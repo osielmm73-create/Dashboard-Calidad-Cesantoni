@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import io
 
 # -----------------------------------------------------------------------------
 # 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS CSS
@@ -147,7 +148,8 @@ def process_excel(file_source):
 
 @st.cache_data(show_spinner=False)
 def load_and_process(file_bytes):
-    return process_excel(file_bytes)
+    # Convierte los bytes en un stream de memoria que pandas entiende perfectamente
+    return process_excel(io.BytesIO(file_bytes))
 
 def fmt_pct(val):
     if pd.isna(val) or val is None:
