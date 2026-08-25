@@ -107,7 +107,7 @@ def process_excel(file):
     sheet_name = 'DASHBOARD' if 'DASHBOARD' in xls.sheet_names else xls.sheet_names[0]
     df_raw = pd.read_excel(xls, sheet_name=sheet_name)
 
-    # 1. Tabla Anual (Cols A:D -> Indices 0:4)
+    # 1. Tabla Anual (Cols A:D)
     t1 = df_raw.iloc[:, 0:4].copy()
     t1.columns = ['MES', 'P1_ANUAL', 'P3_ANUAL', 'P1_P3_ANUAL']
     t1['P1_ANUAL'] = pd.to_numeric(t1['P1_ANUAL'], errors='coerce')
@@ -117,7 +117,7 @@ def process_excel(file):
     total_gen_row = t1[t1['MES'].astype(str).str.contains("Total general", case=False, na=False)]
     t1_meses = t1[~t1['MES'].astype(str).str.contains("Total general", case=False, na=False)].dropna(subset=['P1_P3_ANUAL'])
 
-    # 2. Tabla Diaria / Mensual (Cols F:J -> Indices 5:10)
+    # 2. Tabla Diaria / Mensual (Cols F:J)
     t2 = df_raw.iloc[:, 5:10].copy()
     t2.columns = ['DIA', 'P1_DIARIA', 'P3_DIARIA', 'P1_P3_DIARIA', 'MTS2_DIA']
     t2['P1_DIARIA'] = pd.to_numeric(t2['P1_DIARIA'], errors='coerce')
@@ -138,7 +138,7 @@ def process_excel(file):
     t9 = df_raw.iloc[:, 31:33].dropna(how='all'); t9.columns = ['DEFECTO_P3', 'PORC_DEFECTO_P3']
     t10 = df_raw.iloc[:, 34:36].dropna(how='all'); t10.columns = ['AREA_RESPONSABLE', 'PORC_AREA']
 
-    # 4. Tabla 11: Calidad por Horno (Cols AL:AP -> AL=DIA, AM=H1, AN=H4, AO=H5, AP=H6)
+    # 4. Tabla 11: Calidad por Horno (Cols AL:AP)
     t11 = df_raw.iloc[:, 37:42].copy()
     t11.columns = ['DIA_HORNO', 'H1', 'H4', 'H5', 'H6']
     t11['H1'] = pd.to_numeric(t11['H1'], errors='coerce')
@@ -167,7 +167,6 @@ with st.sidebar:
     st.caption("PISO CERÁMICO P1 & P3")
     st.markdown("---")
     
-    # Nuevo menú de navegación ordenado
     menu = st.radio("NAVEGACIÓN", ["CALIDAD", "DEFECTIVOS", "TONOS", "GARANTÍAS"])
     st.markdown("---")
     
@@ -306,7 +305,7 @@ if menu == "CALIDAD":
 
     st.markdown("---")
 
-    # --- GRÁFICA AMPLIDA Y OPTIMIZADA: CALIDAD DIARIA (%) VS M² ---
+    # --- GRÁFICA AMPLIADA Y CORREGIDA: CALIDAD DIARIA (%) VS M² ---
     st.markdown('<div class="section-box"><div class="section-title">EVOLUCIÓN DIARIA: CALIDAD (%) VS PRODUCCIÓN DE METROS CUADRADOS (M²)</div>', unsafe_allow_html=True)
     if not t2_dias.empty:
         t2_dias['DIA_STR'] = t2_dias['DIA'].astype(str).str.split().str[0]
@@ -315,13 +314,13 @@ if menu == "CALIDAD":
 
         fig_mix = make_subplots(specs=[[{"secondary_y": True}]])
 
-        # 1. Columnas m² (Eje Y2) - Azul Metálico Resaltado
+        # 1. Columnas m² (Eje Y2)
         fig_mix.add_trace(
             go.Bar(
                 x=t2_dias['DIA_STR'],
                 y=y_mts2,
                 name="m² Producidos",
-                marker_color="rgba(56, 189, 248, 0.45)", # Azul brillante semi-transparente
+                marker_color="rgba(56, 189, 248, 0.45)",
                 marker_line_color="#38BDF8",
                 marker_line_width=1,
                 text=[fmt_num(v) for v in y_mts2],
@@ -331,7 +330,7 @@ if menu == "CALIDAD":
             secondary_y=True
         )
 
-        # 2. Línea Calidad Diaria (Eje Y1) - Verde Neón con etiquetas claras
+        # 2. Línea Calidad Diaria (Eje Y1)
         fig_mix.add_trace(
             go.Scatter(
                 x=t2_dias['DIA_STR'],
@@ -347,7 +346,7 @@ if menu == "CALIDAD":
             secondary_y=False
         )
 
-        # 3. Línea Meta 94.50% (Eje Y1) - Rojo Vibrante
+        # 3. Línea Meta 94.50% (Eje Y1)
         fig_mix.add_trace(
             go.Scatter(
                 x=t2_dias['DIA_STR'],
@@ -359,8 +358,12 @@ if menu == "CALIDAD":
             secondary_y=False
         )
 
+        # Ajuste seguro de tipo flotante para evitar el ValueError en Plotly
+        min_y = float(y_calidad.min()) if not y_calidad.empty and pd.notna(y_calidad.min()) else 70.0
+        y_min_bound = float(min(min_y - 4.0, 70.0))
+
         fig_mix.update_layout(
-            height=520, # Mayor tamaño vertical para evitar la saturación
+            height=520,
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             font=dict(color="#94A3B8"),
@@ -379,7 +382,7 @@ if menu == "CALIDAD":
                 showgrid=True,
                 gridcolor="#334155",
                 tickformat=".1f",
-                range=[min(y_calidad.min() - 4, 70), 105]
+                range=[y_min_bound, 105.0]
             ),
             yaxis2=dict(
                 title="Metros Cuadrados (m²)",
