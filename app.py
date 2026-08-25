@@ -148,7 +148,6 @@ def process_excel(file_source):
 
 @st.cache_data(show_spinner=False)
 def load_and_process(file_bytes):
-    # Convierte los bytes en un stream de memoria que pandas entiende perfectamente
     return process_excel(io.BytesIO(file_bytes))
 
 def fmt_pct(val):
@@ -158,8 +157,8 @@ def fmt_pct(val):
 
 def fmt_num(val):
     if pd.isna(val) or val is None:
-        return "0"
-    return f"{val:,.0f}"
+        return "0.00"
+    return f"{val:,.2f}"
 
 # -----------------------------------------------------------------------------
 # 3. PANEL LATERAL DE NAVEGACIÓN
@@ -320,24 +319,24 @@ if menu == "CALIDAD":
 
         fig_mix = make_subplots(specs=[[{"secondary_y": True}]])
 
-        # 1. Columnas m² (Eje Y2)
+        # 1. Columnas m² (Gris claro con borde marcado y 2 decimales)
         fig_mix.add_trace(
             go.Bar(
                 x=t2_dias['DIA_STR'],
                 y=y_mts2,
                 name="m² Producidos",
-                marker_color="rgba(51, 65, 85, 0.65)",
-                marker_line_color="#475569",
-                marker_line_width=1,
-                text=[fmt_num(v) for v in y_mts2],
+                marker_color="#94A3B8",        # Gris claro
+                marker_line_color="#475569",   # Borde bien marcado
+                marker_line_width=1.5,
+                text=[f"{v:,.2f}" if pd.notna(v) else "0.00" for v in y_mts2],  # Formato con 2 decimales
                 texttemplate="%{text}",
                 textposition="inside",
-                textfont=dict(color="#FFFFFF", size=10)
+                textfont=dict(color="#0F172A", size=9, family="sans-serif")
             ),
             secondary_y=True
         )
 
-        # 2. Línea Calidad Diaria (%) (Eje Y1)
+        # 2. Línea Calidad Diaria (%) (Negro completo con etiquetas encima)
         fig_mix.add_trace(
             go.Scatter(
                 x=t2_dias['DIA_STR'],
@@ -345,15 +344,15 @@ if menu == "CALIDAD":
                 mode="lines+markers+text",
                 name="Calidad Diaria (%)",
                 text=[f"<b>{v:.2f}%</b>" for v in y_calidad],
-                textposition="top center",
-                textfont=dict(color="#10B981", size=9),
-                line=dict(color="#10B981", width=3),
-                marker=dict(size=8, color="#10B981", line=dict(color="#064E3B", width=1))
+                textposition="top center",    # Posiciona la etiqueta por encima del punto
+                textfont=dict(color="#000000", size=9, family="sans-serif"), # Etiqueta negra
+                line=dict(color="#000000", width=3),                          # Línea negra
+                marker=dict(size=7, color="#000000", line=dict(color="#FFFFFF", width=1)) # Marcadores negros
             ),
             secondary_y=False
         )
 
-        # 3. Línea Meta 94.50% (Eje Y1)
+        # 3. Línea Meta 94.50%
         fig_mix.add_trace(
             go.Scatter(
                 x=t2_dias['DIA_STR'],
@@ -396,7 +395,7 @@ if menu == "CALIDAD":
         fig_mix.update_yaxes(
             title_text="Metros Cuadrados (m²)",
             showgrid=False,
-            tickformat=",d",
+            tickformat=",.2f",
             range=[0, max_mts2 * 1.2],
             secondary_y=True
         )
