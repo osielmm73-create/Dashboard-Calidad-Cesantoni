@@ -187,16 +187,16 @@ def process_excel(file_source):
     t5.columns = ['MODELOS_AUTORIZADOS', 'HORNO_AUTORIZADOS']
     t5 = t5.dropna(subset=['MODELOS_AUTORIZADOS'])
 
-    # Tabla 6: Cumplimiento de Tono (Cols U:X) - PROCESAMIENTO RIGUROSO
+    # Tabla 6: Cumplimiento de Tono (Cols U:X) - FILTRADO DE ÚLTIMO REGISTRO REAL
     t6 = df_raw.iloc[:, 20:24].copy()
     t6.columns = ['FECHA', 'CUMP_P1', 'CUMP_P3', 'CUMP_ACUMULADO']
     t6['CUMP_P1'] = pd.to_numeric(t6['CUMP_P1'], errors='coerce')
     t6['CUMP_P3'] = pd.to_numeric(t6['CUMP_P3'], errors='coerce')
     t6['CUMP_ACUMULADO'] = pd.to_numeric(t6['CUMP_ACUMULADO'], errors='coerce')
     
-    # Filtrar solo registros con al menos un valor numérico válido en cumplimientos y fecha existente
+    # Se eliminan filas donde no haya datos o donde los cumplimientos sean 0.00%
     t6_clean = t6.dropna(subset=['CUMP_P1', 'CUMP_P3', 'CUMP_ACUMULADO'], how='all').copy()
-    t6_clean = t6_clean[t6_clean['FECHA'].notna() & (t6_clean['FECHA'].astype(str).str.strip() != '')]
+    t6_clean = t6_clean[(t6_clean['CUMP_P1'] > 0) | (t6_clean['CUMP_P3'] > 0) | (t6_clean['CUMP_ACUMULADO'] > 0)]
 
     t7 = df_raw.iloc[:, 25:27].dropna(how='all'); t7.columns = ['DEFECTO', 'PORC_DEFECTO']
     t8 = df_raw.iloc[:, 28:30].dropna(how='all'); t8.columns = ['DEFECTO_P1', 'PORC_DEFECTO_P1']
@@ -700,16 +700,16 @@ elif menu == "DEFECTIVOS":
 elif menu == "TONOS":
     st.markdown('<div class="kpi-section-title">🎨 Cumplimiento y Control de Tonos</div>', unsafe_allow_html=True)
     
-    # Obtener datos validando que existan registros limpios
     if not t6.empty:
         ult_row = t6.iloc[-1]
         v_cump_p1 = ult_row['CUMP_P1']
         v_cump_p3 = ult_row['CUMP_P3']
         v_cump_acum = ult_row['CUMP_ACUMULADO']
         
-        # Formateo adecuado de la fecha sin mostrar horas en cero si es tipo Timestamp o str
         fecha_raw = ult_row['FECHA']
-        if isinstance(fecha_raw, pd.Timestamp):
+        if pd.isna(fecha_raw) or str(fecha_raw).strip() == "":
+            fecha_val = "N/A"
+        elif isinstance(fecha_raw, (pd.Timestamp, pd.DatetimeIndex)):
             fecha_val = fecha_raw.strftime('%d/%m/%Y')
         else:
             fecha_val = str(fecha_raw).split()[0]
@@ -717,7 +717,6 @@ elif menu == "TONOS":
         v_cump_p1 = v_cump_p3 = v_cump_acum = 0
         fecha_val = "N/A"
 
-    # Tarjetas KPI de Cumplimiento de Tono
     k1, k2, k3 = st.columns(3)
     with k1:
         st.markdown(f'''
