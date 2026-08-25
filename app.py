@@ -500,22 +500,23 @@ elif menu == "DEFECTIVOS":
         st.plotly_chart(fig_def, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # 2. TARJETAS KPI ILUSTRADAS (ESTILO LINEAL INDUSTRIAL)
+    # 2. TARJETAS KPI ILUSTRADAS A COLOR (ESTILO INDUSTRIA CERÁMICA)
     st.markdown('<div class="section-box"><div class="section-title">DISTRIBUCIÓN POR ÁREA RESPONSABLE</div>', unsafe_allow_html=True)
     
     ICONOS_AREAS = {
-        "LÍNEAS DE ESMALTADO": "🚿",
+        "LINEAS DE ESMALTADO": "🏭",
+        "LÍNEAS DE ESMALTADO": "🏭",
+        "HORNOS": "🔥",
         "RECTIFICADO": "📐",
+        "TMA": "⚙️",
         "SELECCIÓN & EMPAQUE": "📦",
         "SELECCION & EMPAQUE": "📦",
+        "PRENSAS": "🗜️",
         "MTTO": "🛠️",
         "MANTENIMIENTO": "🛠️",
+        "PULIDO": "✨",
         "MOLIENDA Y PREPARACIÓN DE ESMALTES": "🧪",
         "PREPARACIÓN DE ESMALTES": "🧪",
-        "HORNOS": "🔥",
-        "TMA": "⚙️",
-        "PRENSAS": "🗜️",
-        "PULIDO": "✨",
         "CARACTERÍSTICAS DEL PRODUCTO": "🔍",
         "CARACTERISTICAS DEL PRODUCTO": "🔍"
     }
@@ -547,7 +548,7 @@ elif menu == "DEFECTIVOS":
                 st.markdown(f"""
                 <div class="grid-kpi-card">
                     <div class="grid-kpi-title">{area_name}</div>
-                    <div class="grid-kpi-icon" style="filter: grayscale(100%); opacity: 0.85;">{icon}</div>
+                    <div class="grid-kpi-icon">{icon}</div>
                     <div class="grid-kpi-footer">
                         <span class="{dot_class}">●</span>
                         <span class="grid-kpi-val" style="color: {text_color};">{val_pct}</span>
