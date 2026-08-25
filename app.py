@@ -4,6 +4,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import io
+import os
+
+# Archivo local para persistencia de datos tras reinicios del servidor
+DATA_FILE_PATH = "data_cache.xlsx"
 
 # -----------------------------------------------------------------------------
 # 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS CSS
@@ -148,6 +152,16 @@ ADMIN_PASSWORD = "calidad2026"
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
+def save_uploaded_file(file_bytes):
+    with open(DATA_FILE_PATH, "wb") as f:
+        f.write(file_bytes)
+
+def load_stored_file():
+    if os.path.exists(DATA_FILE_PATH):
+        with open(DATA_FILE_PATH, "rb") as f:
+            return f.read()
+    return None
+
 def process_excel(file_source):
     xls = pd.ExcelFile(file_source)
     sheet_name = 'DASHBOARD' if 'DASHBOARD' in xls.sheet_names else xls.sheet_names[0]
@@ -239,6 +253,19 @@ def fmt_num(val):
         return "0.00"
     return f"{val:,.2f}"
 
+# Cargar automáticamente desde disco si no hay datos en memoria
+if "stored_file" not in st.session_state:
+    persisted_file = load_stored_file()
+    if persisted_file is not None:
+        st.session_state["stored_file"] = persisted_file
+
+if "stored_file" in st.session_state and not st.session_state.get("data_loaded", False):
+    try:
+        st.session_state.tables = load_and_process(st.session_state["stored_file"])
+        st.session_state.data_loaded = True
+    except Exception as err:
+        st.error(f"Error al procesar el archivo guardado: {err}")
+
 # -----------------------------------------------------------------------------
 # 3. PANEL LATERAL DE NAVEGACIÓN
 # -----------------------------------------------------------------------------
@@ -270,12 +297,13 @@ with st.sidebar:
         uploaded_file = st.file_uploader("Cargar Reporte Excel", type=["xlsx", "xls"])
         
         if uploaded_file is not None:
-            st.session_state["stored_file"] = uploaded_file.getvalue()
-
-        if "stored_file" in st.session_state:
+            bytes_data = uploaded_file.getvalue()
+            save_uploaded_file(bytes_data)
+            st.session_state["stored_file"] = bytes_data
             try:
-                st.session_state.tables = load_and_process(st.session_state["stored_file"])
+                st.session_state.tables = load_and_process(bytes_data)
                 st.session_state.data_loaded = True
+                st.success("Reporte actualizado y guardado en disco.")
             except Exception as err:
                 st.error(f"Error al procesar el archivo: {err}")
         
@@ -283,6 +311,8 @@ with st.sidebar:
             if st.button("🗑️ Resetear Datos Cargados"):
                 if "stored_file" in st.session_state:
                     del st.session_state["stored_file"]
+                if os.path.exists(DATA_FILE_PATH):
+                    os.remove(DATA_FILE_PATH)
                 st.session_state.data_loaded = False
                 st.session_state.tables = None
                 st.cache_data.clear()
