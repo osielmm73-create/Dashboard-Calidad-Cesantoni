@@ -487,7 +487,7 @@ elif menu == "DEFECTIVOS":
         fig_def.update_traces(
             textposition='outside',
             textangle=-90,
-            textfont=dict(color='#94A3B8', size=20, family="sans-serif", weight="bold"),
+            textfont=dict(color='#FFFFFF', size=20, family="sans-serif", weight="bold"),
             marker_line_color='#334155',
             marker_line_width=1
         )
@@ -497,10 +497,10 @@ elif menu == "DEFECTIVOS":
             height=500,
             paper_bgcolor='rgba(0,0,0,0)', 
             plot_bgcolor='rgba(0,0,0,0)', 
-            font_color='#94A3B8', 
+            font_color='#FFFFFF', 
             margin=dict(l=10, r=10, t=70, b=10)
         )
-        fig_def.update_xaxes(showgrid=False, tickangle=-45, tickfont=dict(color='#CBD5E1', size=11, weight="bold"), title=dict(text="DEFECTO", font=dict(color='#94A3B8', size=13, weight="bold")))
+        fig_def.update_xaxes(showgrid=False, tickangle=-45, tickfont=dict(color='#FFFFFF', size=20, weight="bold"), title=dict(text="DEFECTO", font=dict(color='#FFFFFF', size=14, weight="bold")))
         fig_def.update_yaxes(showgrid=False, visible=False, range=[0, max_val * 1.35])
         st.plotly_chart(fig_def, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
@@ -592,7 +592,7 @@ elif menu == "DEFECTIVOS":
                 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # 3. DETALLE DE PARETOS P1 Y P3
+    # 3. DETALLE DE PARETOS P1 Y P3 (MODIFICADOS CON ETIQUETAS A TAMAÑO 20 Y ALTO CONTRASTE)
     st.markdown('<div class="section-box"><div class="section-title">ANÁLISIS COMPARATIVO DE DEFECTOS: PLANTA 1 VS PLANTA 3</div>', unsafe_allow_html=True)
     c_a, c_b = st.columns(2)
     
@@ -613,19 +613,24 @@ elif menu == "DEFECTIVOS":
             fig_p1.update_traces(
                 textposition='outside',
                 textangle=-90,
-                textfont=dict(color='#94A3B8', size=20, family="sans-serif", weight="bold"),
+                textfont=dict(color='#FFFFFF', size=20, family="sans-serif", weight="bold"),
                 marker_line_color='#334155',
                 marker_line_width=1
             )
             max_p1 = df_p1['VAL_PCT'].max() if not df_p1.empty else 100.0
             fig_p1.update_layout(
-                height=480, 
+                height=520, 
                 paper_bgcolor='rgba(0,0,0,0)', 
                 plot_bgcolor='rgba(0,0,0,0)', 
-                font_color='#94A3B8',
+                font_color='#FFFFFF',
                 margin=dict(l=5, r=5, t=60, b=10)
             )
-            fig_p1.update_xaxes(showgrid=False, tickangle=-45, tickfont=dict(color='#CBD5E1', size=11, weight="bold"), title=None)
+            fig_p1.update_xaxes(
+                showgrid=False, 
+                tickangle=-45, 
+                tickfont=dict(color='#FFFFFF', size=20, family="Segoe UI, sans-serif", weight="bold"), 
+                title=None
+            )
             fig_p1.update_yaxes(showgrid=False, visible=False, range=[0, max_p1 * 1.35])
             st.plotly_chart(fig_p1, use_container_width=True)
 
@@ -646,19 +651,24 @@ elif menu == "DEFECTIVOS":
             fig_p3.update_traces(
                 textposition='outside',
                 textangle=-90,
-                textfont=dict(color='#94A3B8', size=20, family="sans-serif", weight="bold"),
+                textfont=dict(color='#FFFFFF', size=20, family="sans-serif", weight="bold"),
                 marker_line_color='#334155',
                 marker_line_width=1
             )
             max_p3 = df_p3['VAL_PCT'].max() if not df_p3.empty else 100.0
             fig_p3.update_layout(
-                height=480, 
+                height=520, 
                 paper_bgcolor='rgba(0,0,0,0)', 
                 plot_bgcolor='rgba(0,0,0,0)', 
-                font_color='#94A3B8',
+                font_color='#FFFFFF',
                 margin=dict(l=5, r=5, t=60, b=10)
             )
-            fig_p3.update_xaxes(showgrid=False, tickangle=-45, tickfont=dict(color='#CBD5E1', size=11, weight="bold"), title=None)
+            fig_p3.update_xaxes(
+                showgrid=False, 
+                tickangle=-45, 
+                tickfont=dict(color='#FFFFFF', size=20, family="Segoe UI, sans-serif", weight="bold"), 
+                title=None
+            )
             fig_p3.update_yaxes(showgrid=False, visible=False, range=[0, max_p3 * 1.35])
             st.plotly_chart(fig_p3, use_container_width=True)
             
