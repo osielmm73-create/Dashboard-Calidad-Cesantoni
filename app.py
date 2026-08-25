@@ -4,7 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # -----------------------------------------------------------------------------
-# 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS
+# 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS CSS
 # -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="Dashboard - Sistema de Calidad",
@@ -13,20 +13,18 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilos CSS con alto contraste para el panel lateral y componentes
 st.markdown("""
 <style>
     /* Fondo General */
     .main { background-color: #0F172A; color: #F8FAFC; font-family: 'Segoe UI', Roboto, sans-serif; }
     .block-container { padding: 1.5rem 2rem 2rem 2rem; }
 
-    /* BARRA LATERAL (Legibilidad Mejorada) */
+    /* BARRA LATERAL (Alto Contraste y Legibilidad) */
     [data-testid="stSidebar"] { 
         background-color: #1E293B !important; 
         border-right: 1px solid #334155; 
     }
     
-    /* Textos del menú lateral */
     [data-testid="stSidebar"] p, 
     [data-testid="stSidebar"] span, 
     [data-testid="stSidebar"] label,
@@ -35,7 +33,6 @@ st.markdown("""
         font-weight: 500;
     }
     
-    /* Encabezados del Menú Lateral */
     [data-testid="stSidebar"] h1, 
     [data-testid="stSidebar"] h2, 
     [data-testid="stSidebar"] h3 {
@@ -43,7 +40,6 @@ st.markdown("""
         font-weight: 700 !important;
     }
 
-    /* Opciones de Radio Button */
     [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {
         color: #94A3B8 !important;
         font-size: 13px !important;
@@ -68,13 +64,25 @@ st.markdown("""
         background-color: #1E293B; 
         border: 1px solid #334155; 
         border-radius: 12px; 
-        padding: 18px; 
+        padding: 14px 10px; 
         text-align: center;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+        margin-bottom: 12px;
     }
-    .kpi-title { font-size: 11px; font-weight: 700; color: #94A3B8; text-transform: uppercase; margin-bottom: 8px; }
-    .kpi-value { font-size: 28px; font-weight: 800; margin-bottom: 4px; }
-    .kpi-subtext { font-size: 11px; color: #64748B; }
+    .kpi-title { font-size: 11px; font-weight: 700; color: #94A3B8; text-transform: uppercase; margin-bottom: 6px; }
+    .kpi-value { font-size: 24px; font-weight: 800; margin-bottom: 2px; }
+    .kpi-subtext { font-size: 10px; color: #64748B; }
+
+    /* Titulos de Secciones KPI */
+    .kpi-group-title {
+        font-size: 12px;
+        font-weight: 700;
+        color: #38BDF8;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 8px;
+        margin-top: 4px;
+    }
 
     /* Cajas de Gráficos y Tablas */
     .section-box { 
@@ -188,33 +196,63 @@ if not st.session_state.data_loaded:
 t1, t2, t3, t4, t5, t6, t7, t8, t9, t10 = st.session_state.tables
 
 # -----------------------------------------------------------------------------
-# VISTA: RESUMEN GENERAL
+# VISTA: RESUMEN GENERAL (9 KPI CARDS SOLICITADAS)
 # -----------------------------------------------------------------------------
 if menu == "RESUMEN":
-    c1, c2, c3, c4, c5, c6 = st.columns(6)
     
-    val_p1_p3 = t2['P1_P3_DIARIA'].mean() if not t2.empty else 0
-    val_p1 = t2['P1_DIARIA'].mean() if not t2.empty else 0
-    val_p3 = t2['P3_DIARIA'].mean() if not t2.empty else 0
-    val_mts = t2['MTS2_DIA'].sum() if not t2.empty else 0
-    val_tono = t6['CUMP_ACUMULADO'].iloc[-1] if not t6.empty else 0
-    val_garantias = t3['GARANTIAS'].sum() if not t3.empty else 0
+    # --- CÁLCULO DE VALORES DE KPI ---
+    # Calidad Anual (Acumulada en T1)
+    val_anual_ac = t1['P1_P3_ANUAL'].iloc[-1] if not t1.empty else 0
+    val_anual_p1 = t1['P1_ANUAL'].iloc[-1] if not t1.empty else 0
+    val_anual_p3 = t1['P3_ANUAL'].iloc[-1] if not t1.empty else 0
 
+    # Calidad Mensual (Promedio o Acumulado del Mes en T2)
+    val_mensual_ac = t2['P1_P3_DIARIA'].mean() if not t2.empty else 0
+    val_mensual_p1 = t2['P1_DIARIA'].mean() if not t2.empty else 0
+    val_mensual_p3 = t2['P3_DIARIA'].mean() if not t2.empty else 0
+
+    # Calidad Diaria (Último Día Capturado en T2)
+    ult_registro = t2.iloc[-1] if not t2.empty else None
+    val_diaria_ac = ult_registro['P1_P3_DIARIA'] if ult_registro is not None else 0
+    val_diaria_p1 = ult_registro['P1_DIARIA'] if ult_registro is not None else 0
+    val_diaria_p3 = ult_registro['P3_DIARIA'] if ult_registro is not None else 0
+    fecha_ult_dia = str(ult_registro['DIA']) if ult_registro is not None else "N/A"
+
+    # --- DESPLIEGUE DE TARJETAS EN 3 FILAS ---
+    
+    # Fila 1: Calidad Anual
+    st.markdown('<div class="kpi-group-title">INDICADORES ANUALES ACUMULADOS</div>', unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
     with c1:
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">CALIDAD P1 & P3</div><div class="kpi-value" style="color: #10B981;">{val_p1_p3*100:.1f}%</div><div class="kpi-subtext">Meta >= 95.0%</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">CALIDAD ANUAL ACUMULADA</div><div class="kpi-value" style="color: #10B981;">{val_anual_ac*100:.1f}%</div><div class="kpi-subtext">Global P1 & P3</div></div>', unsafe_allow_html=True)
     with c2:
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">CALIDAD P1</div><div class="kpi-value" style="color: #3B82F6;">{val_p1*100:.1f}%</div><div class="kpi-subtext">Meta >= 95.0%</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">CALIDAD ANUAL P1</div><div class="kpi-value" style="color: #3B82F6;">{val_anual_p1*100:.1f}%</div><div class="kpi-subtext">Planta 1</div></div>', unsafe_allow_html=True)
     with c3:
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">CALIDAD P3</div><div class="kpi-value" style="color: #F59E0B;">{val_p3*100:.1f}%</div><div class="kpi-subtext">Meta >= 95.0%</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">CALIDAD ANUAL P3</div><div class="kpi-value" style="color: #F59E0B;">{val_anual_p3*100:.1f}%</div><div class="kpi-subtext">Planta 3</div></div>', unsafe_allow_html=True)
+
+    # Fila 2: Calidad Mensual
+    st.markdown('<div class="kpi-group-title">INDICADORES MENSUALES ACUMULADOS</div>', unsafe_allow_html=True)
+    c4, c5, c6 = st.columns(3)
     with c4:
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">PRODUCCIÓN M2</div><div class="kpi-value" style="color: #6366F1;">{val_mts:,.0f}</div><div class="kpi-subtext">MTS2 Acumulados</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">CALIDAD MENSUAL ACUMULADA</div><div class="kpi-value" style="color: #10B981;">{val_mensual_ac*100:.1f}%</div><div class="kpi-subtext">Global P1 & P3</div></div>', unsafe_allow_html=True)
     with c5:
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">CUMP. TONO</div><div class="kpi-value" style="color: #EC4899;">{val_tono*100:.1f}%</div><div class="kpi-subtext">Meta >= 98.0%</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">CALIDAD MENSUAL P1</div><div class="kpi-value" style="color: #3B82F6;">{val_mensual_p1*100:.1f}%</div><div class="kpi-subtext">Planta 1</div></div>', unsafe_allow_html=True)
     with c6:
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">GARANTÍAS</div><div class="kpi-value" style="color: #EF4444;">{val_garantias:,.0f}</div><div class="kpi-subtext">Reclamos Mes</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">CALIDAD MENSUAL P3</div><div class="kpi-value" style="color: #F59E0B;">{val_mensual_p3*100:.1f}%</div><div class="kpi-subtext">Planta 3</div></div>', unsafe_allow_html=True)
+
+    # Fila 3: Calidad Diaria (Último Día Capturado)
+    st.markdown(f'<div class="kpi-group-title">INDICADORES DIARIOS (ÚLTIMO DÍA CAPTURADO: {fecha_ult_dia})</div>', unsafe_allow_html=True)
+    c7, c8, c9 = st.columns(3)
+    with c7:
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">CALIDAD DIARIA</div><div class="kpi-value" style="color: #10B981;">{val_diaria_ac*100:.1f}%</div><div class="kpi-subtext">Global P1 & P3</div></div>', unsafe_allow_html=True)
+    with c8:
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">CALIDAD DIARIA P1</div><div class="kpi-value" style="color: #3B82F6;">{val_diaria_p1*100:.1f}%</div><div class="kpi-subtext">Planta 1</div></div>', unsafe_allow_html=True)
+    with c9:
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">CALIDAD DIARIA P3</div><div class="kpi-value" style="color: #F59E0B;">{val_diaria_p3*100:.1f}%</div><div class="kpi-subtext">Planta 3</div></div>', unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # GRÁFICOS INFERIORES
     col_g1, col_g2 = st.columns([1.2, 1])
     with col_g1:
         st.markdown('<div class="section-box"><div class="section-title">PARETO DE DEFECTOS PRINCIPALES</div>', unsafe_allow_html=True)
