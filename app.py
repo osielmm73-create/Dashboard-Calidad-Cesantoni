@@ -5,8 +5,9 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import io
 import os
+import glob
 
-# Archivo local para persistencia de datos tras reinicios del servidor
+# Archivo local por defecto o respaldo
 DATA_FILE_PATH = "data_cache.xlsx"
 
 # -----------------------------------------------------------------------------
@@ -157,8 +158,11 @@ def save_uploaded_file(file_bytes):
         f.write(file_bytes)
 
 def load_stored_file():
-    if os.path.exists(DATA_FILE_PATH):
-        with open(DATA_FILE_PATH, "rb") as f:
+    # Busca automáticamente cualquier archivo .xlsx en la carpeta (incluso si cambia de nombre)
+    archivos_xlsx = glob.glob("*.xlsx")
+    if archivos_xlsx:
+        archivo_reciente = max(archivos_xlsx, key=os.path.getmtime)
+        with open(archivo_reciente, "rb") as f:
             return f.read()
     return None
 
@@ -325,7 +329,6 @@ with st.sidebar:
 # -----------------------------------------------------------------------------
 # 4. DASHBOARD PRINCIPAL - ENCABEZADO CON LOGO Y TÍTULOS
 # -----------------------------------------------------------------------------
-# Se amplía la primera columna de 1 a 1.5 para aumentar el tamaño visual del logo (+50%)
 header_col1, header_col2 = st.columns([1.5, 6], vertical_alignment="center")
 
 with header_col1:
@@ -796,7 +799,6 @@ elif menu == "TONOS":
 
     st.markdown("---")
 
-    # SECCIÓN: LISTA DE TONOS NUEVOS ASIGNADOS (POR HORNO)
     st.markdown('<div class="section-box"><div class="section-title">📋 TONOS NUEVOS ASIGNADOS (CLASIFICADOS POR HORNO)</div>', unsafe_allow_html=True)
     if not t12.empty:
         hornos_disponibles = ["Todos los Hornos"] + sorted(list(t12['HORNO'].astype(str).unique()))
