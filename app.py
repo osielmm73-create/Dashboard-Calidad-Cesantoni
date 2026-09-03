@@ -934,6 +934,6 @@ elif menu == "GARANTÍAS":
 # =============================================================================
 # HOJA 5: CALIDAD PROCESOS
 # =============================================================================
-elif menu == "CALIDAD PROCESOS":
+elif menu == "Variables criticas":
     st.markdown('<div class="kpi-section-title">⚙️ Calidad Procesos</div>', unsafe_allow_html=True)
     st.info("ℹ️ **Módulo de Calidad Procesos habilitado. Puedes agregar aquí tus métricas y vistas correspondientes.**")
