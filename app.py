@@ -288,9 +288,9 @@ with st.sidebar:
     elif seccion_principal == "Calidad Procesos":
         menu = st.radio("NAVEGACIÓN", ["Variables Criticas"])
     elif seccion_principal == "Materias Primas, Metrología y Laboratorio":
-        menu = st.radio("NAVEGACIÓN", ["Detalles / Observaciones"])
+        menu = st.radio("NAVEGACIÓN", ["Material Primas y Metrología", "Laboratorio"])
     elif seccion_principal == "Garantias":
-        menu = st.radio("NAVEGACIÓN", ["Detalles / Observaciones"])
+        menu = st.radio("NAVEGACIÓN", ["Garantias"])
         
     st.markdown("---")
     
@@ -365,7 +365,7 @@ t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6, t7, t8, t
 # =============================================================================
 # HOJA 1: CALIDAD
 # =============================================================================
-if menu == "CALIDAD":
+if seccion_principal == "Calidad Producto Terminado" and menu == "CALIDAD":
 
     if not total_gen_row.empty:
         v_anual_ac = total_gen_row['P1_P3_ANUAL'].values[0]
@@ -542,17 +542,12 @@ if menu == "CALIDAD":
 # =============================================================================
 # HOJA 2: DEFECTIVOS
 # =============================================================================
-elif menu == "DEFECTIVOS":
+elif seccion_principal == "Calidad Producto Terminado" and menu == "DEFECTIVOS":
     st.markdown('<div class="kpi-section-title">📉 Análisis de Defectos y Áreas Responsables</div>', unsafe_allow_html=True)
     
     st.markdown('<div class="section-box"><div class="section-title">PARETO DE DEFECTOS GENERAL</div>', unsafe_allow_html=True)
     
-    if planta_sel == "Planta 1 (P1)":
-        df_def = t8.rename(columns={'DEFECTO_P1': 'DEFECTO', 'PORC_DEFECTO_P1': 'PORC_DEFECTO'}).copy()
-    elif planta_sel == "Planta 3 (P3)":
-        df_def = t9.rename(columns={'DEFECTO_P3': 'DEFECTO', 'PORC_DEFECTO_P3': 'PORC_DEFECTO'}).copy()
-    else:
-        df_def = t7.copy()
+    df_def = t7.copy()
         
     if not df_def.empty:
         df_def = df_def.dropna(subset=['DEFECTO', 'PORC_DEFECTO']).copy()
@@ -762,7 +757,7 @@ elif menu == "DEFECTIVOS":
 # =============================================================================
 # HOJA 3: TONOS
 # =============================================================================
-elif menu == "TONOS":
+elif seccion_principal == "Calidad Producto Terminado" and menu == "TONOS":
     st.markdown('<div class="kpi-section-title">🎨 Cumplimiento y Control de Tonos</div>', unsafe_allow_html=True)
     
     if not t6.empty:
@@ -871,7 +866,7 @@ elif menu == "TONOS":
 # =============================================================================
 # HOJA 4: GARANTÍAS
 # =============================================================================
-elif menu == "GARANTÍAS":
+elif seccion_principal == "Calidad Producto Terminado" and menu == "GARANTÍAS":
     st.markdown('<div class="kpi-section-title">🛡️ Reclamaciones y Garantías</div>', unsafe_allow_html=True)
     
     st.markdown('<div class="section-box"><div class="section-title">GARANTÍAS RECLAMADAS POR MES</div>', unsafe_allow_html=True)
@@ -940,7 +935,7 @@ elif menu == "GARANTÍAS":
 # =============================================================================
 # HOJA 5: CALIDAD PROCESOS
 # =============================================================================
-elif menu == "Variables Criticas" and seccion_principal == "Calidad Procesos":
+elif seccion_principal == "Calidad Procesos" and menu == "Variables Criticas":
     st.markdown('<div class="kpi-section-title">⚙️ Calidad Procesos</div>', unsafe_allow_html=True)
     st.info("ℹ️ **Módulo de Calidad Procesos habilitado. Puedes agregar aquí tus métricas y vistas correspondientes.**")
 
@@ -948,8 +943,12 @@ elif menu == "Variables Criticas" and seccion_principal == "Calidad Procesos":
 # HOJA 6: MATERIAS PRIMAS, METROLOGÍA Y LABORATORIO
 # =============================================================================
 elif seccion_principal == "Materias Primas, Metrología y Laboratorio":
-    st.markdown('<div class="kpi-section-title">🔬 Materias Primas, Metrología y Laboratorio</div>', unsafe_allow_html=True)
-    st.info("ℹ️ **Módulo de Materias Primas, Metrología y Laboratorio habilitado. Puedes agregar aquí tus métricas y vistas correspondientes.**")
+    if menu == "Material Primas y Metrología":
+        st.markdown('<div class="kpi-section-title">🧪 Material Primas y Metrología</div>', unsafe_allow_html=True)
+        st.info("ℹ️ **Módulo de Material Primas y Metrología habilitado.**")
+    elif menu == "Laboratorio":
+        st.markdown('<div class="kpi-section-title">🔬 Laboratorio</div>', unsafe_allow_html=True)
+        st.info("ℹ️ **Módulo de Laboratorio habilitado.**")
 
 # =============================================================================
 # HOJA 7: GARANTIAS
