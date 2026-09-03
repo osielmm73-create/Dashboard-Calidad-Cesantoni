@@ -285,9 +285,6 @@ with st.sidebar:
         
     st.markdown("---")
     
-    planta_sel = st.selectbox("Seleccionar Planta / Línea", ["Todas (P1 & P3)", "Planta 1 (P1)", "Planta 3 (P3)"])
-    st.markdown("---")
-    
     st.markdown("### 🔒 **Gestión de Archivo**")
     
     if not st.session_state.authenticated:
