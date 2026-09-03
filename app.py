@@ -13,7 +13,7 @@ DATA_FILE_PATH = "data_cache.xlsx"
 # 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS CSS
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Calidad Producto Terminado P1&P3",
+    page_title="Calidad P1&P3",
     page_icon="🟩",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -281,7 +281,7 @@ with st.sidebar:
     if seccion_principal == "Calidad Producto Terminado":
         menu = st.radio("NAVEGACIÓN", ["CALIDAD", "DEFECTIVOS", "TONOS", "GARANTÍAS"])
     else:
-        menu = st.radio("NAVEGACIÓN", ["CALIDAD PROCESOS"])
+        menu = st.radio("NAVEGACIÓN", ["VARIABLES CRITICAS"])
         
     st.markdown("---")
     
