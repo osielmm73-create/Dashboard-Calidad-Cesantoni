@@ -10,6 +10,18 @@ import os
 DATA_FILE_PATH = "data_cache.xlsx"
 
 # -----------------------------------------------------------------------------
+# CONFIGURACIÓN DE CONTRASEÑAS POR SECCIÓN Y CONTRASEÑA MAESTRA
+# -----------------------------------------------------------------------------
+MASTER_PASSWORD = "admin2026"
+
+SECTION_PASSWORDS = {
+    "Calidad Producto Terminado": "cpt2026",
+    "Calidad Procesos": "cp2026",
+    "Materias Primas, Metrología y Laboratorio": "mpml2026",
+    "Garantias": "garantias2026"
+}
+
+# -----------------------------------------------------------------------------
 # 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS CSS
 # -----------------------------------------------------------------------------
 st.set_page_config(
@@ -146,11 +158,11 @@ st.markdown("""
 # -----------------------------------------------------------------------------
 # 2. PROCESAMIENTO Y CACHÉ PERSISTENTE DE DATOS EXCEL
 # -----------------------------------------------------------------------------
-ADMIN_USER = "admin"
-ADMIN_PASSWORD = "calidad2026"
+if "auth_master" not in st.session_state:
+    st.session_state.auth_master = False
 
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
+if "auth_sections" not in st.session_state:
+    st.session_state.auth_sections = {sec: False for sec in SECTION_PASSWORDS.keys()}
 
 def save_uploaded_file(file_bytes):
     with open(DATA_FILE_PATH, "wb") as f:
@@ -267,7 +279,7 @@ if "stored_file" in st.session_state and not st.session_state.get("data_loaded",
         st.error(f"Error al procesar el archivo guardado: {err}")
 
 # -----------------------------------------------------------------------------
-# 3. PANEL LATERAL DE NAVEGACIÓN
+# 3. PANEL LATERAL DE NAVEGACIÓN Y GESTIÓN DE SEGURIDAD
 # -----------------------------------------------------------------------------
 with st.sidebar:
     st.markdown("## 🟩 **CALIDAD**")
@@ -296,50 +308,61 @@ with st.sidebar:
     
     st.markdown("### 🔒 **Gestión de Archivo**")
     
-    if not st.session_state.authenticated:
-        with st.expander("🔑 Iniciar Sesión Admin"):
-            u_in = st.text_input("Usuario")
-            p_in = st.text_input("Contraseña", type="password")
-            if st.button("Ingresar", type="primary"):
-                if u_in == ADMIN_USER and p_in == ADMIN_PASSWORD:
-                    st.session_state.authenticated = True
+    # Verificación de permisos para la sección actual o permiso maestro
+    can_edit_current = st.session_state.auth_master or st.session_state.auth_sections.get(seccion_principal, False)
+    
+    with st.expander("🔑 Acceso y Carga de Datos"):
+        if not can_edit_current:
+            pass_input = st.text_input("Contraseña de Sección o Maestra", type="password")
+            if st.button("Validar Contraseña", type="primary"):
+                if pass_input == MASTER_PASSWORD:
+                    st.session_state.auth_master = True
+                    st.success("Acceso Maestro concedido (Modificación total).")
+                    st.rerun()
+                elif pass_input == SECTION_PASSWORDS.get(seccion_principal):
+                    st.session_state.auth_sections[seccion_principal] = True
+                    st.success(f"Acceso concedido para: {seccion_principal}")
                     st.rerun()
                 else:
-                    st.error("Credenciales erróneas")
-    else:
-        st.success("🟢 Sesión Admin Activa")
-        uploaded_file = st.file_uploader("Cargar Reporte Excel", type=["xlsx", "xls"])
-        
-        if uploaded_file is not None:
-            bytes_data = uploaded_file.getvalue()
-            save_uploaded_file(bytes_data)
-            st.session_state["stored_file"] = bytes_data
-            try:
-                st.session_state.tables = load_and_process(bytes_data)
-                st.session_state.data_loaded = True
-                st.success("Reporte actualizado y guardado en disco.")
-            except Exception as err:
-                st.error(f"Error al procesar el archivo: {err}")
-        
-        if st.session_state.get("data_loaded", False):
-            if st.button("🗑️ Resetear Datos Cargados"):
-                if "stored_file" in st.session_state:
-                    del st.session_state["stored_file"]
-                if os.path.exists(DATA_FILE_PATH):
-                    os.remove(DATA_FILE_PATH)
-                st.session_state.data_loaded = False
-                st.session_state.tables = None
-                st.cache_data.clear()
+                    st.error("Contraseña incorrecta.")
+        else:
+            if st.session_state.auth_master:
+                st.success("👑 Sesión con Contraseña Maestra (Edición Total)")
+            else:
+                st.success(f"🔓 Sesión Autenticada para:\n{seccion_principal}")
+
+            uploaded_file = st.file_uploader(f"Cargar Excel ({seccion_principal})", type=["xlsx", "xls"])
+            
+            if uploaded_file is not None:
+                bytes_data = uploaded_file.getvalue()
+                save_uploaded_file(bytes_data)
+                st.session_state["stored_file"] = bytes_data
+                try:
+                    st.session_state.tables = load_and_process(bytes_data)
+                    st.session_state.data_loaded = True
+                    st.success("Reporte cargado y actualizado con éxito.")
+                except Exception as err:
+                    st.error(f"Error al procesar el archivo: {err}")
+
+            if st.button("Cerrar Sesión Actual"):
+                st.session_state.auth_master = False
+                st.session_state.auth_sections[seccion_principal] = False
                 st.rerun()
-                
-        if st.button("Cerrar Sesión"):
-            st.session_state.authenticated = False
+
+    if st.session_state.get("data_loaded", False) and st.session_state.auth_master:
+        if st.button("🗑️ Resetear Todos los Datos"):
+            if "stored_file" in st.session_state:
+                del st.session_state["stored_file"]
+            if os.path.exists(DATA_FILE_PATH):
+                os.remove(DATA_FILE_PATH)
+            st.session_state.data_loaded = False
+            st.session_state.tables = None
+            st.cache_data.clear()
             st.rerun()
 
 # -----------------------------------------------------------------------------
 # 4. DASHBOARD PRINCIPAL - ENCABEZADO CON LOGO Y TÍTULOS
 # -----------------------------------------------------------------------------
-# Se amplía la primera columna de 1 a 1.5 para aumentar el tamaño visual del logo (+50%)
 header_col1, header_col2 = st.columns([1.5, 6], vertical_alignment="center")
 
 with header_col1:
