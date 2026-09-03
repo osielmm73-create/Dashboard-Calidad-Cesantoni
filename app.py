@@ -1083,33 +1083,40 @@ elif seccion_principal == "Calidad Procesos":
                         y='VARIABLE',
                         orientation='h',
                         text=df_area_var['VAL_PCT'].apply(lambda x: f"{x:.2f}%"),
-                        color_discrete_sequence=['#38BDF8']
+                        color_discrete_sequence=['#475569']  # Color gris uniforme
                     )
+                    
+                    max_var_val = df_area_var['VAL_PCT'].max() if not df_area_var.empty else 100.0
+                    
                     fig_var.update_traces(
                         textposition='outside',
-                        textfont=dict(color='#FFFFFF', size=12, family="sans-serif", weight="bold"),
-                        marker_line_color='#0284C7',
+                        textfont=dict(color='#000000', size=14, family="sans-serif", weight="bold"),
+                        marker_line_color='#334155',
                         marker_line_width=1
                     )
-                    max_var_val = df_area_var['VAL_PCT'].max() if not df_area_var.empty else 100.0
+                    
                     fig_var.update_layout(
-                        height=max(350, len(df_area_var) * 35),
+                        height=max(250, len(df_area_var) * 45),
                         paper_bgcolor='rgba(0,0,0,0)',
                         plot_bgcolor='rgba(0,0,0,0)',
-                        font_color='#FFFFFF',
-                        margin=dict(l=10, r=40, t=30, b=10)
+                        font_color='#000000',
+                        margin=dict(l=10, r=60, t=20, b=10)
                     )
+                    
                     fig_var.update_xaxes(
-                        showgrid=True,
-                        gridcolor='#334155',
-                        range=[0, max_var_val * 1.25],
-                        title="% Cumplimiento"
+                        showgrid=False,
+                        showticklabels=True,
+                        range=[0, max_var_val * 1.30],
+                        title=dict(text="% Cumplimiento", font=dict(color='#000000', size=12, weight="bold"))
                     )
+                    
                     fig_var.update_yaxes(
                         showgrid=False,
                         title=None,
-                        tickfont=dict(color='#FFFFFF', size=12, family="sans-serif")
+                        autorange="reversed",
+                        tickfont=dict(color='#000000', size=13, family="sans-serif", weight="bold")  # Muestra el nombre de las variables evaluadas
                     )
+                    
                     st.plotly_chart(fig_var, use_container_width=True)
         else:
             st.caption("No se encontraron datos de variables por área en la hoja PROCESOS (Cols D:F).")
