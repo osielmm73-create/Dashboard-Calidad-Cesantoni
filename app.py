@@ -281,7 +281,7 @@ with st.sidebar:
     if seccion_principal == "Calidad Producto Terminado":
         menu = st.radio("NAVEGACIÓN", ["CALIDAD", "DEFECTIVOS", "TONOS", "GARANTÍAS"])
     else:
-        menu = st.radio("NAVEGACIÓN", ["VARIABLES CRITICAS"])
+        menu = st.radio("NAVEGACIÓN", ["Variables Criticas"])
         
     st.markdown("---")
     
@@ -934,6 +934,6 @@ elif menu == "GARANTÍAS":
 # =============================================================================
 # HOJA 5: CALIDAD PROCESOS
 # =============================================================================
-elif menu == "Variables criticas":
+elif menu == "CALIDAD PROCESOS":
     st.markdown('<div class="kpi-section-title">⚙️ Calidad Procesos</div>', unsafe_allow_html=True)
     st.info("ℹ️ **Módulo de Calidad Procesos habilitado. Puedes agregar aquí tus métricas y vistas correspondientes.**")
