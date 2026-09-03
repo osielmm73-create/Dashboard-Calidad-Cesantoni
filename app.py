@@ -275,13 +275,22 @@ with st.sidebar:
     st.markdown("---")
     
     # Estructura del menú reorganizado en Secciones principales y Sub-secciones
-    seccion_principal = st.radio("SECCIÓN", ["Calidad Producto Terminado", "Calidad Procesos"])
+    seccion_principal = st.radio("SECCIÓN", [
+        "Calidad Producto Terminado", 
+        "Calidad Procesos", 
+        "Materias Primas, Metrología y Laboratorio", 
+        "Garantias"
+    ])
     st.markdown("---")
     
     if seccion_principal == "Calidad Producto Terminado":
         menu = st.radio("NAVEGACIÓN", ["CALIDAD", "DEFECTIVOS", "TONOS", "GARANTÍAS"])
-    else:
+    elif seccion_principal == "Calidad Procesos":
         menu = st.radio("NAVEGACIÓN", ["Variables Criticas"])
+    elif seccion_principal == "Materias Primas, Metrología y Laboratorio":
+        menu = st.radio("NAVEGACIÓN", ["Detalles / Observaciones"])
+    elif seccion_principal == "Garantias":
+        menu = st.radio("NAVEGACIÓN", ["Detalles / Observaciones"])
         
     st.markdown("---")
     
@@ -931,6 +940,20 @@ elif menu == "GARANTÍAS":
 # =============================================================================
 # HOJA 5: CALIDAD PROCESOS
 # =============================================================================
-elif menu == "CALIDAD PROCESOS":
+elif menu == "Variables Criticas" and seccion_principal == "Calidad Procesos":
     st.markdown('<div class="kpi-section-title">⚙️ Calidad Procesos</div>', unsafe_allow_html=True)
     st.info("ℹ️ **Módulo de Calidad Procesos habilitado. Puedes agregar aquí tus métricas y vistas correspondientes.**")
+
+# =============================================================================
+# HOJA 6: MATERIAS PRIMAS, METROLOGÍA Y LABORATORIO
+# =============================================================================
+elif seccion_principal == "Materias Primas, Metrología y Laboratorio":
+    st.markdown('<div class="kpi-section-title">🔬 Materias Primas, Metrología y Laboratorio</div>', unsafe_allow_html=True)
+    st.info("ℹ️ **Módulo de Materias Primas, Metrología y Laboratorio habilitado. Puedes agregar aquí tus métricas y vistas correspondientes.**")
+
+# =============================================================================
+# HOJA 7: GARANTIAS
+# =============================================================================
+elif seccion_principal == "Garantias":
+    st.markdown('<div class="kpi-section-title">🛡️ Garantias</div>', unsafe_allow_html=True)
+    st.info("ℹ️ **Módulo de Garantias habilitado. Puedes agregar aquí tus métricas y vistas correspondientes.**")
