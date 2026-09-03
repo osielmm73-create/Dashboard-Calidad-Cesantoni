@@ -176,8 +176,8 @@ def load_stored_file():
 
 def process_excel(file_source):
     xls = pd.ExcelFile(file_source)
-    sheet_name = 'DASHBOARD' if 'DASHBOARD' in xls.sheet_names else xls.sheet_names[0]
-    df_raw = pd.read_excel(xls, sheet_name=sheet_name)
+    sheet_dashboard = 'DASHBOARD' if 'DASHBOARD' in xls.sheet_names else xls.sheet_names[0]
+    df_raw = pd.read_excel(xls, sheet_name=sheet_dashboard)
 
     # 1. Tabla Anual (Cols A:D)
     t1 = df_raw.iloc[:, 0:4].copy()
@@ -249,7 +249,39 @@ def process_excel(file_source):
     t13 = t13.dropna(subset=['MODELO_GARANTIA'])
     t13['FECHA_GARANTIA'] = t13['FECHA_GARANTIA'].apply(lambda x: x.strftime('%d/%m/%Y') if isinstance(x, (pd.Timestamp, pd.DatetimeIndex)) else str(x).split()[0] if pd.notna(x) else "N/A")
 
-    return (t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6_clean, t7, t8, t9, t10, t11_clean, t12, t13)
+    # -------------------------------------------------------------------------
+    # LECTURA DE LA HOJA "PROCESOS"
+    # -------------------------------------------------------------------------
+    t_procesos_kpi = pd.DataFrame()
+    t_procesos_variables = pd.DataFrame()
+    t_procesos_tendencias = pd.DataFrame()
+
+    if 'PROCESOS' in xls.sheet_names:
+        df_proc = pd.read_excel(xls, sheet_name='PROCESOS')
+        
+        # Cols A:B -> AREA AUDITADA (A), % CUMPLIMIENTO GENERAL DE VARIABLES (B)
+        if df_proc.shape[1] >= 2:
+            t_procesos_kpi = df_proc.iloc[:, [0, 1]].dropna(how='all').copy()
+            t_procesos_kpi.columns = ['AREA_AUDITADA', 'CUMP_GENERAL']
+            t_procesos_kpi = t_procesos_kpi.dropna(subset=['AREA_AUDITADA'])
+            t_procesos_kpi['CUMP_GENERAL'] = pd.to_numeric(t_procesos_kpi['CUMP_GENERAL'], errors='coerce')
+        
+        # Cols D:F -> AREA VARIABLE (D), VARIABLE (E), % DE CUMPLIMIENTO (F)
+        if df_proc.shape[1] >= 6:
+            t_procesos_variables = df_proc.iloc[:, [3, 4, 5]].dropna(how='all').copy()
+            t_procesos_variables.columns = ['AREA_VARIABLE', 'VARIABLE', 'PORC_CUMPLIMIENTO']
+            t_procesos_variables = t_procesos_variables.dropna(subset=['AREA_VARIABLE', 'VARIABLE'])
+            t_procesos_variables['PORC_CUMPLIMIENTO'] = pd.to_numeric(t_procesos_variables['PORC_CUMPLIMIENTO'], errors='coerce')
+
+        # Cols H:N -> FECHA (H), PRENSAS (I), LINEAS DE ESMALTADO (J), HORNOS (K), RECTIFICADO (L), PULIDO (M), SELECCIÓN (N)
+        if df_proc.shape[1] >= 14:
+            t_procesos_tendencias = df_proc.iloc[:, [7, 8, 9, 10, 11, 12, 13]].dropna(how='all').copy()
+            t_procesos_tendencias.columns = ['FECHA', 'PRENSAS', 'LINEAS DE ESMALTADO', 'HORNOS', 'RECTIFICADO', 'PULIDO', 'SELECCIÓN']
+            t_procesos_tendencias = t_procesos_tendencias.dropna(subset=['FECHA'])
+            for col in ['PRENSAS', 'LINEAS DE ESMALTADO', 'HORNOS', 'RECTIFICADO', 'PULIDO', 'SELECCIÓN']:
+                t_procesos_tendencias[col] = pd.to_numeric(t_procesos_tendencias[col], errors='coerce')
+
+    return (t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6_clean, t7, t8, t9, t10, t11_clean, t12, t13, t_procesos_kpi, t_procesos_variables, t_procesos_tendencias)
 
 @st.cache_data(show_spinner=False)
 def load_and_process(file_bytes):
@@ -374,7 +406,7 @@ with header_col1:
 with header_col2:
     st.markdown("""
     <div class="dashboard-header">
-        <div class="header-title">Calidad Producto Terminado P1&P3</div>
+        <div class="header-title">Calidad P1&P3</div>
         <div class="header-subtitle">Todos somos calidad | CESANTONI SA de CV</div>
     </div>
     """, unsafe_allow_html=True)
@@ -383,7 +415,7 @@ if not st.session_state.get("data_loaded", False):
     st.info("ℹ️ **Por favor, ingresa tu reporte en Excel desde el panel lateral para visualizar el dashboard.**")
     st.stop()
 
-t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13 = st.session_state.tables
+t1_meses, total_gen_row, t2_dias, resumen_mensual_row, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t_procesos_kpi, t_procesos_variables, t_procesos_tendencias = st.session_state.tables
 
 # =============================================================================
 # HOJA 1: CALIDAD
@@ -648,6 +680,8 @@ elif seccion_principal == "Calidad Producto Terminado" and menu == "DEFECTIVOS":
         "TMA": "⚙️",
         "SELECCIÓN & EMPAQUE": "📦",
         "SELECCION & EMPAQUE": "📦",
+        "SELECCIÓN": "📦",
+        "SELECCION": "📦",
         "PRENSAS": SVG_PRENSAS,
         "PRENSADO": SVG_PRENSAS,
         "MTTO": "🛠️",
@@ -959,8 +993,203 @@ elif seccion_principal == "Calidad Producto Terminado" and menu == "GARANTÍAS":
 # HOJA 5: CALIDAD PROCESOS
 # =============================================================================
 elif seccion_principal == "Calidad Procesos" and menu == "Variables Criticas":
-    st.markdown('<div class="kpi-section-title">⚙️ Calidad Procesos</div>', unsafe_allow_html=True)
-    st.info("ℹ️ **Módulo de Calidad Procesos habilitado. Puedes agregar aquí tus métricas y vistas correspondientes.**")
+    st.markdown('<div class="kpi-section-title">⚙️ Calidad Procesos - Variables Críticas</div>', unsafe_allow_html=True)
+
+    SVG_PRENSAS = """
+    <svg width="44" height="44" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="27" y="4" width="10" height="16" rx="2" fill="#475569"/>
+        <rect x="29" y="4" width="6" height="16" rx="1" fill="#64748B"/>
+        <path d="M16 20 C16 18, 48 18, 48 20 L48 26 C48 28, 16 28, 16 26 Z" fill="#334155"/>
+        <rect x="18" y="21" width="28" height="4" rx="1" fill="#475569"/>
+        <rect x="22" y="28" width="20" height="6" rx="1" fill="#CBD5E1" stroke="#94A3B8" stroke-width="1"/>
+        <rect x="10" y="34" width="44" height="14" rx="3" fill="#1E293B"/>
+        <rect x="12" y="36" width="40" height="4" fill="#334155"/>
+        <rect x="14" y="48" width="8" height="4" fill="#0F172A"/>
+        <rect x="42" y="48" width="8" height="4" fill="#0F172A"/>
+    </svg>
+    """
+
+    SVG_ESMALTADO = """
+    <svg width="44" height="44" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="16" y="8" width="6" height="20" rx="1" fill="#EF4444"/>
+        <rect x="26" y="14" width="6" height="14" rx="1" fill="#EF4444"/>
+        <path d="M14 8 H24 V11 H14 Z" fill="#B91C1C"/>
+        <path d="M24 14 H34 V17 H24 Z" fill="#B91C1C"/>
+        <path d="M8 28 L24 20 L40 28 V52 H8 Z" fill="#94A3B8"/>
+        <path d="M40 28 L56 34 V52 H40 Z" fill="#64748B"/>
+        <rect x="14" y="36" width="10" height="16" rx="1" fill="#38BDF8"/>
+        <rect x="30" y="36" width="6" height="6" rx="1" fill="#F1F5F9"/>
+        <rect x="44" y="40" width="8" height="12" rx="1" fill="#334155"/>
+    </svg>
+    """
+
+    ICONOS_AREAS = {
+        "LINEAS DE ESMALTADO": SVG_ESMALTADO,
+        "LÍNEAS DE ESMALTADO": SVG_ESMALTADO,
+        "HORNOS": "🔥",
+        "RECTIFICADO": "📐",
+        "TMA": "⚙️",
+        "SELECCIÓN & EMPAQUE": "📦",
+        "SELECCION & EMPAQUE": "📦",
+        "SELECCIÓN": "📦",
+        "SELECCION": "📦",
+        "PRENSAS": SVG_PRENSAS,
+        "PRENSADO": SVG_PRENSAS,
+        "MTTO": "🛠️",
+        "MANTENIMIENTO": "🛠️",
+        "PULIDO": "✨",
+        "MOLIENDA Y PREPARACIÓN DE ESMALTES": "🧪",
+        "PREPARACIÓN DE ESMALTES": "🧪",
+        "CARACTERÍSTICAS DEL PRODUCTO": "🔍",
+        "CARACTERISTICAS DEL PRODUCTO": "🔍"
+    }
+
+    # 1. TARJETAS KPI CARDS (% CUMPLIMIENTO GENERAL DE VARIABLES POR ÁREA)
+    st.markdown('<div class="section-box"><div class="section-title"> CUMPLIMIENTO GENERAL DE VARIABLES POR ÁREA AUDITADA</div>', unsafe_allow_html=True)
+    if not t_procesos_kpi.empty:
+        df_kpi_proc = t_procesos_kpi.dropna(subset=['AREA_AUDITADA', 'CUMP_GENERAL']).copy()
+        cols_proc = st.columns(min(len(df_kpi_proc), 4) if len(df_kpi_proc) > 0 else 1)
+        
+        for idx, (_, row) in enumerate(df_kpi_proc.iterrows()):
+            area_name = str(row['AREA_AUDITADA']).strip().upper()
+            val_num = row['CUMP_GENERAL']
+            val_num = val_num * 100 if val_num <= 1.0 else val_num
+            val_pct = f"{val_num:.2f}%"
+            icon = ICONOS_AREAS.get(area_name, "🏭")
+            
+            if val_num >= 90.0:
+                dot_class = "dot-green"
+                text_color = "#15803D"
+            elif val_num >= 75.0:
+                dot_class = "dot-yellow"
+                text_color = "#D97706"
+            else:
+                dot_class = "dot-red"
+                text_color = "#B91C1C"
+
+            col_target = cols_proc[idx % len(cols_proc)]
+            with col_target:
+                st.markdown(f"""
+                <div class="grid-kpi-card">
+                    <div class="grid-kpi-title">{area_name}</div>
+                    <div class="grid-kpi-icon">{icon}</div>
+                    <div class="grid-kpi-footer">
+                        <span class="{dot_class}">●</span>
+                        <span class="grid-kpi-val" style="color: {text_color};">{val_pct}</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+    else:
+        st.caption("No se encontraron datos de Cumplimiento General de Variables en la hoja PROCESOS (Cols A:B).")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # 2. GRÁFICOS DE PARETO POR ÁREA
+    st.markdown('<div class="section-box"><div class="section-title">📊 ANÁLISIS DE PARETO DE VARIABLES POR ÁREA</div>', unsafe_allow_html=True)
+    if not t_procesos_variables.empty:
+        areas_unicas = t_procesos_variables['AREA_VARIABLE'].dropna().unique()
+        
+        for area in areas_unicas:
+            df_area_var = t_procesos_variables[t_procesos_variables['AREA_VARIABLE'] == area].copy()
+            df_area_var = df_area_var.dropna(subset=['VARIABLE', 'PORC_CUMPLIMIENTO'])
+            
+            if not df_area_var.empty:
+                df_area_var['VAL_PCT'] = df_area_var['PORC_CUMPLIMIENTO'].apply(lambda x: x * 100 if x <= 1.0 else x)
+                df_area_var = df_area_var.sort_values(by='VAL_PCT', ascending=True)
+                
+                st.subheader(f"Área: {str(area).upper()}")
+                fig_var = px.bar(
+                    df_area_var,
+                    x='VAL_PCT',
+                    y='VARIABLE',
+                    orientation='h',
+                    text=df_area_var['VAL_PCT'].apply(lambda x: f"{x:.2f}%"),
+                    color_discrete_sequence=['#38BDF8']
+                )
+                fig_var.update_traces(
+                    textposition='outside',
+                    textfont=dict(color='#FFFFFF', size=12, family="sans-serif", weight="bold"),
+                    marker_line_color='#0284C7',
+                    marker_line_width=1
+                )
+                max_var_val = df_area_var['VAL_PCT'].max() if not df_area_var.empty else 100.0
+                fig_var.update_layout(
+                    height=max(350, len(df_area_var) * 35),
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font_color='#FFFFFF',
+                    margin=dict(l=10, r=40, t=30, b=10)
+                )
+                fig_var.update_xaxes(
+                    showgrid=True,
+                    gridcolor='#334155',
+                    range=[0, max_var_val * 1.25],
+                    title="% Cumplimiento"
+                )
+                fig_var.update_yaxes(
+                    showgrid=False,
+                    title=None,
+                    tickfont=dict(color='#FFFFFF', size=12, family="sans-serif")
+                )
+                st.plotly_chart(fig_var, use_container_width=True)
+    else:
+        st.caption("No se encontraron datos de variables por área en la hoja PROCESOS (Cols D:F).")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # 3. GRÁFICOS DE TENDENCIA DIARIA POR ÁREA
+    st.markdown('<div class="section-box"><div class="section-title">📈 TENDENCIA DIARIA DE CUMPLIMIENTO POR ÁREA</div>', unsafe_allow_html=True)
+    if not t_procesos_tendencias.empty:
+        df_tend = t_procesos_tendencias.copy()
+        df_tend['FECHA_STR'] = df_tend['FECHA'].apply(lambda x: x.strftime('%d/%m/%Y') if isinstance(x, (pd.Timestamp, pd.DatetimeIndex)) else str(x).split()[0] if pd.notna(x) else "N/A")
+        
+        columnas_areas = ['PRENSAS', 'LINEAS DE ESMALTADO', 'HORNOS', 'RECTIFICADO', 'PULIDO', 'SELECCIÓN']
+        
+        for col_area in columnas_areas:
+            if col_area in df_tend.columns:
+                df_sub = df_tend.dropna(subset=['FECHA_STR', col_area]).copy()
+                if not df_sub.empty:
+                    df_sub['VAL_PCT'] = df_sub[col_area].apply(lambda x: x * 100 if x <= 1.0 else x)
+                    
+                    st.subheader(f"Tendencia Diaria: {col_area}")
+                    fig_tend = px.line(
+                        df_sub,
+                        x='FECHA_STR',
+                        y='VAL_PCT',
+                        markers=True,
+                        text=df_sub['VAL_PCT'].apply(lambda x: f"{x:.1f}%"),
+                        color_discrete_sequence=['#10B981']
+                    )
+                    fig_tend.update_traces(
+                        textposition="top center",
+                        textfont=dict(color='#F8FAFC', size=11, family="sans-serif", weight="bold"),
+                        line=dict(width=3),
+                        marker=dict(size=7, color="#10B981", line=dict(color="#FFFFFF", width=1))
+                    )
+                    min_tend = df_sub['VAL_PCT'].min() if not df_sub.empty else 0.0
+                    max_tend = df_sub['VAL_PCT'].max() if not df_sub.empty else 100.0
+                    
+                    fig_tend.update_layout(
+                        height=400,
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        font_color='#94A3B8',
+                        margin=dict(l=15, r=15, t=40, b=15)
+                    )
+                    fig_tend.update_xaxes(
+                        type="category",
+                        tickangle=-45,
+                        showgrid=False,
+                        title_text="Fecha"
+                    )
+                    fig_tend.update_yaxes(
+                        showgrid=True,
+                        gridcolor='#334155',
+                        range=[max(0.0, min_tend - 10.0), min(120.0, max_tend + 15.0)],
+                        title_text="% Cumplimiento"
+                    )
+                    st.plotly_chart(fig_tend, use_container_width=True)
+    else:
+        st.caption("No se encontraron datos de tendencia diaria en la hoja PROCESOS (Cols H:N).")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # =============================================================================
 # HOJA 6: MATERIAS PRIMAS, METROLOGÍA Y LABORATORIO
