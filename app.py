@@ -1083,7 +1083,7 @@ elif seccion_principal == "Calidad Procesos":
                         y='VARIABLE',
                         orientation='h',
                         text=df_area_var['VAL_PCT'].apply(lambda x: f"{x:.2f}%"),
-                        color_discrete_sequence=['#475569']  # Color gris uniforme
+                        color_discrete_sequence=['#475569']
                     )
                     
                     max_var_val = df_area_var['VAL_PCT'].max() if not df_area_var.empty else 100.0
@@ -1114,7 +1114,7 @@ elif seccion_principal == "Calidad Procesos":
                         showgrid=False,
                         title=None,
                         autorange="reversed",
-                        tickfont=dict(color='#000000', size=13, family="sans-serif", weight="bold")  # Muestra el nombre de las variables evaluadas
+                        tickfont=dict(color='#000000', size=13, family="sans-serif", weight="bold")
                     )
                     
                     st.plotly_chart(fig_var, use_container_width=True)
@@ -1145,10 +1145,11 @@ elif seccion_principal == "Calidad Procesos":
                             color_discrete_sequence=['#10B981']
                         )
                         fig_tend.update_traces(
+                            mode="lines+markers+text",
                             textposition="top center",
-                            textfont=dict(color='#F8FAFC', size=11, family="sans-serif", weight="bold"),
+                            textfont=dict(color='#000000', size=14, family="sans-serif", weight="bold"),
                             line=dict(width=3),
-                            marker=dict(size=7, color="#10B981", line=dict(color="#FFFFFF", width=1))
+                            marker=dict(size=8, color="#10B981", line=dict(color="#FFFFFF", width=1))
                         )
                         min_tend = df_sub['VAL_PCT'].min() if not df_sub.empty else 0.0
                         max_tend = df_sub['VAL_PCT'].max() if not df_sub.empty else 100.0
