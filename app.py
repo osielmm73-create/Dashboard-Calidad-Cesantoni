@@ -717,84 +717,83 @@ if seccion_principal == "Calidad Producto Terminado":
         st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown('<div class="section-box"><div class="section-title">ANÁLISIS COMPARATIVO DE DEFECTOS: PLANTA 1 VS PLANTA 3</div>', unsafe_allow_html=True)
+        c_a, c_b = st.columns(2)
         
-        # Pareto Defectos Planta 1 a ancho completo
-        st.subheader("Pareto Defectos Planta 1 ")
-        if not t8.empty:
-            df_p1 = t8.dropna(subset=['DEFECTO_P1', 'PORC_DEFECTO_P1']).copy()
-            df_p1['VAL_PCT'] = df_p1['PORC_DEFECTO_P1'].apply(lambda x: x * 100 if x <= 1.0 else x)
-            df_p1 = df_p1.sort_values(by='VAL_PCT', ascending=False)
-            
-            fig_p1 = px.bar(
-                df_p1, 
-                x='DEFECTO_P1', 
-                y='VAL_PCT', 
-                text=df_p1['VAL_PCT'].apply(lambda x: f"{x:.2f}%"),
-                color_discrete_sequence=['#475569']
-            )
-            fig_p1.update_traces(
-                textposition='outside',
-                textangle=-90,
-                textfont=dict(color='#000000', size=18, family="sans-serif", weight="bold"),
-                marker_line_color='#334155',
-                marker_line_width=1
-            )
-            max_p1 = df_p1['VAL_PCT'].max() if not df_p1.empty else 100.0
-            fig_p1.update_layout(
-                height=550, 
-                paper_bgcolor='rgba(0,0,0,0)', 
-                plot_bgcolor='rgba(0,0,0,0)', 
-                font_color='#FFFFFF',
-                margin=dict(l=5, r=5, t=60, b=10)
-            )
-            fig_p1.update_xaxes(
-                showgrid=False, 
-                tickangle=-45, 
-                tickfont=dict(color='#000000', size=14, family="Segoe UI, sans-serif", weight="bold"), 
-                title=None
-            )
-            fig_p1.update_yaxes(showgrid=False, showticklabels=False, title=None, range=[0, max_p1 * 1.5])
-            st.plotly_chart(fig_p1, use_container_width=True)
+        with c_a:
+            st.subheader("Pareto Defectos Planta 1 ")
+            if not t8.empty:
+                df_p1 = t8.dropna(subset=['DEFECTO_P1', 'PORC_DEFECTO_P1']).copy()
+                df_p1['VAL_PCT'] = df_p1['PORC_DEFECTO_P1'].apply(lambda x: x * 100 if x <= 1.0 else x)
+                df_p1 = df_p1.sort_values(by='VAL_PCT', ascending=False)
+                
+                fig_p1 = px.bar(
+                    df_p1, 
+                    x='DEFECTO_P1', 
+                    y='VAL_PCT', 
+                    text=df_p1['VAL_PCT'].apply(lambda x: f"{x:.2f}%"),
+                    color_discrete_sequence=['#475569']
+                )
+                fig_p1.update_traces(
+                    textposition='outside',
+                    textangle=-90,
+                    textfont=dict(color='#000000', size=18, family="sans-serif", weight="bold"),
+                    marker_line_color='#334155',
+                    marker_line_width=1
+                )
+                max_p1 = df_p1['VAL_PCT'].max() if not df_p1.empty else 100.0
+                fig_p1.update_layout(
+                    height=550, 
+                    paper_bgcolor='rgba(0,0,0,0)', 
+                    plot_bgcolor='rgba(0,0,0,0)', 
+                    font_color='#FFFFFF',
+                    margin=dict(l=5, r=5, t=60, b=10)
+                )
+                fig_p1.update_xaxes(
+                    showgrid=False, 
+                    tickangle=-45, 
+                    tickfont=dict(color='#000000', size=14, family="Segoe UI, sans-serif", weight="bold"), 
+                    title=None
+                )
+                fig_p1.update_yaxes(showgrid=False, showticklabels=False, title=None, range=[0, max_p1 * 1.5])
+                st.plotly_chart(fig_p1, use_container_width=True)
 
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        # Pareto Defectos Planta 3 a ancho completo
-        st.subheader("Pareto Defectos Planta 3 ")
-        if not t9.empty:
-            df_p3 = t9.dropna(subset=['DEFECTO_P3', 'PORC_DEFECTO_P3']).copy()
-            df_p3['VAL_PCT'] = df_p3['PORC_DEFECTO_P3'].apply(lambda x: x * 100 if x <= 1.0 else x)
-            df_p3 = df_p3.sort_values(by='VAL_PCT', ascending=False)
-            
-            fig_p3 = px.bar(
-                df_p3, 
-                x='DEFECTO_P3', 
-                y='VAL_PCT', 
-                text=df_p3['VAL_PCT'].apply(lambda x: f"{x:.2f}%"),
-                color_discrete_sequence=['#475569']
-            )
-            fig_p3.update_traces(
-                textposition='outside',
-                textangle=-90,
-                textfont=dict(color='#000000', size=18, family="sans-serif", weight="bold"),
-                marker_line_color='#334155',
-                marker_line_width=1
-            )
-            max_p3 = df_p3['VAL_PCT'].max() if not df_p3.empty else 100.0
-            fig_p3.update_layout(
-                height=550, 
-                paper_bgcolor='rgba(0,0,0,0)', 
-                plot_bgcolor='rgba(0,0,0,0)', 
-                font_color='#FFFFFF',
-                margin=dict(l=5, r=5, t=60, b=10)
-            )
-            fig_p3.update_xaxes(
-                showgrid=False, 
-                tickangle=-45, 
-                tickfont=dict(color='#000000', size=14, family="Segoe UI, sans-serif", weight="bold"), 
-                title=None
-            )
-            fig_p3.update_yaxes(showgrid=False, showticklabels=False, title=None, range=[0, max_p3 * 1.5])
-            st.plotly_chart(fig_p3, use_container_width=True)
+        with c_b:
+            st.subheader("Pareto Defectos Planta 3 ")
+            if not t9.empty:
+                df_p3 = t9.dropna(subset=['DEFECTO_P3', 'PORC_DEFECTO_P3']).copy()
+                df_p3['VAL_PCT'] = df_p3['PORC_DEFECTO_P3'].apply(lambda x: x * 100 if x <= 1.0 else x)
+                df_p3 = df_p3.sort_values(by='VAL_PCT', ascending=False)
+                
+                fig_p3 = px.bar(
+                    df_p3, 
+                    x='DEFECTO_P3', 
+                    y='VAL_PCT', 
+                    text=df_p3['VAL_PCT'].apply(lambda x: f"{x:.2f}%"),
+                    color_discrete_sequence=['#475569']
+                )
+                fig_p3.update_traces(
+                    textposition='outside',
+                    textangle=-90,
+                    textfont=dict(color='#000000', size=18, family="sans-serif", weight="bold"),
+                    marker_line_color='#334155',
+                    marker_line_width=1
+                )
+                max_p3 = df_p3['VAL_PCT'].max() if not df_p3.empty else 100.0
+                fig_p3.update_layout(
+                    height=550, 
+                    paper_bgcolor='rgba(0,0,0,0)', 
+                    plot_bgcolor='rgba(0,0,0,0)', 
+                    font_color='#FFFFFF',
+                    margin=dict(l=5, r=5, t=60, b=10)
+                )
+                fig_p3.update_xaxes(
+                    showgrid=False, 
+                    tickangle=-45, 
+                    tickfont=dict(color='#000000', size=14, family="Segoe UI, sans-serif", weight="bold"), 
+                    title=None
+                )
+                fig_p3.update_yaxes(showgrid=False, showticklabels=False, title=None, range=[0, max_p3 * 1.5])
+                st.plotly_chart(fig_p3, use_container_width=True)
                 
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1030,6 +1029,10 @@ elif seccion_principal == "Calidad Procesos":
         st.markdown('<div class="section-box"><div class="section-title"> CUMPLIMIENTO GENERAL DE VARIABLES POR ÁREA AUDITADA</div>', unsafe_allow_html=True)
         if not t_procesos_kpi.empty:
             df_kpi_proc = t_procesos_kpi.dropna(subset=['AREA_AUDITADA', 'CUMP_GENERAL']).copy()
+            
+            # Ordenamiento de mayor a menor según CUMP_GENERAL
+            df_kpi_proc = df_kpi_proc.sort_values(by='CUMP_GENERAL', ascending=False)
+            
             cols_proc = st.columns(min(len(df_kpi_proc), 4) if len(df_kpi_proc) > 0 else 1)
             
             for idx, (_, row) in enumerate(df_kpi_proc.iterrows()):
