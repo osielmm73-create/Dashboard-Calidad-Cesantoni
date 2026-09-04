@@ -503,7 +503,7 @@ if seccion_principal == "Calidad Producto Terminado":
                     text=[f"{v:,.2f}" if pd.notna(v) else "0.00" for v in y_mts2],
                     texttemplate="%{text}",
                     textposition="inside",
-                    textfont=dict(color="#FFFFFF", size=29, family="sans-serif")
+                    textfont=dict(color="#FFFFFF", size=18, family="sans-serif")
                 ),
                 secondary_y=True
             )
@@ -529,7 +529,7 @@ if seccion_principal == "Calidad Producto Terminado":
                         showarrow=False,
                         textangle=-90,
                         yshift=50,
-                        font=dict(color="#000000", size=29, family="sans-serif"),
+                        font=dict(color="#000000", size=18, family="sans-serif"),
                         yref="y"
                     )
 
@@ -605,7 +605,7 @@ if seccion_principal == "Calidad Producto Terminado":
             fig_def.update_traces(
                 textposition='outside',
                 textangle=-90,
-                textfont=dict(color='#000000', size=29, family="sans-serif", weight="bold"),
+                textfont=dict(color='#000000', size=18, family="sans-serif", weight="bold"),
                 marker_line_color='#334155',
                 marker_line_width=1
             )
@@ -736,7 +736,7 @@ if seccion_principal == "Calidad Producto Terminado":
                 fig_p1.update_traces(
                     textposition='outside',
                     textangle=-90,
-                    textfont=dict(color='#000000', size=29, family="sans-serif", weight="bold"),
+                    textfont=dict(color='#000000', size=18, family="sans-serif", weight="bold"),
                     marker_line_color='#334155',
                     marker_line_width=1
                 )
@@ -774,7 +774,7 @@ if seccion_principal == "Calidad Producto Terminado":
                 fig_p3.update_traces(
                     textposition='outside',
                     textangle=-90,
-                    textfont=dict(color='#000000', size=29, family="sans-serif", weight="bold"),
+                    textfont=dict(color='#000000', size=18, family="sans-serif", weight="bold"),
                     marker_line_color='#334155',
                     marker_line_width=1
                 )
@@ -1165,7 +1165,8 @@ elif seccion_principal == "Calidad Procesos":
                             type="category",
                             tickangle=-45,
                             showgrid=False,
-                            title_text="Fecha"
+                            title_text="Fecha",
+                            title_font=dict(color='#000000', size=16, family="sans-serif", weight="bold")
                         )
                         fig_tend.update_yaxes(
                             showgrid=True,
