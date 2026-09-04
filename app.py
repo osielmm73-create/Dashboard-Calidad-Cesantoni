@@ -503,7 +503,7 @@ if seccion_principal == "Calidad Producto Terminado":
                     text=[f"{v:,.2f}" if pd.notna(v) else "0.00" for v in y_mts2],
                     texttemplate="%{text}",
                     textposition="inside",
-                    textfont=dict(color="#FFFFFF", size=14, family="sans-serif")
+                    textfont=dict(color="#FFFFFF", size=29, family="sans-serif")
                 ),
                 secondary_y=True
             )
@@ -529,7 +529,7 @@ if seccion_principal == "Calidad Producto Terminado":
                         showarrow=False,
                         textangle=-90,
                         yshift=50,
-                        font=dict(color="#000000", size=38, family="sans-serif"),
+                        font=dict(color="#000000", size=29, family="sans-serif"),
                         yref="y"
                     )
 
@@ -605,7 +605,7 @@ if seccion_principal == "Calidad Producto Terminado":
             fig_def.update_traces(
                 textposition='outside',
                 textangle=-90,
-                textfont=dict(color='#000000', size=40, family="sans-serif", weight="bold"),
+                textfont=dict(color='#000000', size=29, family="sans-serif", weight="bold"),
                 marker_line_color='#334155',
                 marker_line_width=1
             )
@@ -736,7 +736,7 @@ if seccion_principal == "Calidad Producto Terminado":
                 fig_p1.update_traces(
                     textposition='outside',
                     textangle=-90,
-                    textfont=dict(color='#000000', size=38, family="sans-serif", weight="bold"),
+                    textfont=dict(color='#000000', size=29, family="sans-serif", weight="bold"),
                     marker_line_color='#334155',
                     marker_line_width=1
                 )
@@ -774,7 +774,7 @@ if seccion_principal == "Calidad Producto Terminado":
                 fig_p3.update_traces(
                     textposition='outside',
                     textangle=-90,
-                    textfont=dict(color='#000000', size=38, family="sans-serif", weight="bold"),
+                    textfont=dict(color='#000000', size=29, family="sans-serif", weight="bold"),
                     marker_line_color='#334155',
                     marker_line_width=1
                 )
@@ -919,7 +919,7 @@ if seccion_principal == "Calidad Producto Terminado":
             
             fig_gar.update_traces(
                 textposition='outside',
-                textfont=dict(color='#000000', size=38, family="sans-serif", weight="bold"),
+                textfont=dict(color='#000000', size=29, family="sans-serif", weight="bold"),
                 marker_line_color='#64748B',
                 marker_line_width=1
             )
@@ -1090,7 +1090,7 @@ elif seccion_principal == "Calidad Procesos":
                     
                     fig_var.update_traces(
                         textposition='outside',
-                        textfont=dict(color='#000000', size=38, family="sans-serif", weight="bold"),
+                        textfont=dict(color='#000000', size=29, family="sans-serif", weight="bold"),
                         marker_line_color='#334155',
                         marker_line_width=1
                     )
@@ -1107,7 +1107,7 @@ elif seccion_principal == "Calidad Procesos":
                         showgrid=False,
                         showticklabels=True,
                         range=[0, max_var_val * 1.45],
-                        title=dict(text="% Cumplimiento", font=dict(color='#000000', size=12, weight="bold"))
+                        title=dict(text="% Cumplimiento", font=dict(color='#000000', size=16, weight="bold"))
                     )
                     
                     fig_var.update_yaxes(
@@ -1147,9 +1147,9 @@ elif seccion_principal == "Calidad Procesos":
                         fig_tend.update_traces(
                             mode="lines+markers+text",
                             textposition="top center",
-                            textfont=dict(color='#000000', size=38, family="sans-serif", weight="bold"),
+                            textfont=dict(color='#000000', size=29, family="sans-serif", weight="bold"),
                             line=dict(width=3, color='#000000'),
-                            marker=dict(size=9, color="#000000", line=dict(color="#FFFFFF", width=1))
+                            marker=dict(size=9, color="#000000", line=dict(color="#000000", width=1))
                         )
                         min_tend = df_sub['VAL_PCT'].min() if not df_sub.empty else 0.0
                         max_tend = df_sub['VAL_PCT'].max() if not df_sub.empty else 100.0
