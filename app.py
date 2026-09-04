@@ -503,7 +503,7 @@ if seccion_principal == "Calidad Producto Terminado":
                     text=[f"{v:,.2f}" if pd.notna(v) else "0.00" for v in y_mts2],
                     texttemplate="%{text}",
                     textposition="inside",
-                    textfont=dict(color="#FFFFFF", size=9, family="sans-serif")
+                    textfont=dict(color="#FFFFFF", size=14, family="sans-serif")
                 ),
                 secondary_y=True
             )
@@ -515,7 +515,7 @@ if seccion_principal == "Calidad Producto Terminado":
                     mode="lines+markers",
                     name="Calidad Diaria (%)",
                     line=dict(color="#000000", width=3),
-                    marker=dict(size=7, color="#000000", line=dict(color="#FFFFFF", width=1))
+                    marker=dict(size=8, color="#000000", line=dict(color="#FFFFFF", width=1))
                 ),
                 secondary_y=False
             )
@@ -528,8 +528,8 @@ if seccion_principal == "Calidad Producto Terminado":
                         text=f"<b>{y_val:.2f}%</b>",
                         showarrow=False,
                         textangle=-90,
-                        yshift=40,
-                        font=dict(color="#000000", size=18, family="sans-serif"),
+                        yshift=50,
+                        font=dict(color="#000000", size=38, family="sans-serif"),
                         yref="y"
                     )
 
@@ -568,7 +568,7 @@ if seccion_principal == "Calidad Producto Terminado":
                 title_text="% Calidad",
                 showgrid=False,
                 tickformat=".1f",
-                range=[y_min_bound, 118.0],
+                range=[y_min_bound, 125.0],
                 secondary_y=False
             )
 
@@ -605,14 +605,14 @@ if seccion_principal == "Calidad Producto Terminado":
             fig_def.update_traces(
                 textposition='outside',
                 textangle=-90,
-                textfont=dict(color='#000000', size=20, family="sans-serif", weight="bold"),
+                textfont=dict(color='#000000', size=40, family="sans-serif", weight="bold"),
                 marker_line_color='#334155',
                 marker_line_width=1
             )
             
             max_val = df_def['VAL_PCT'].max() if not df_def.empty else 100.0
             fig_def.update_layout(
-                height=500,
+                height=550,
                 paper_bgcolor='rgba(0,0,0,0)', 
                 plot_bgcolor='rgba(0,0,0,0)', 
                 font_color='#FFFFFF', 
@@ -624,7 +624,7 @@ if seccion_principal == "Calidad Producto Terminado":
                 tickfont=dict(color='#000000', size=20, family="sans-serif", weight="bold"), 
                 title=dict(text="DEFECTO", font=dict(color='#000000', size=20, family="sans-serif", weight="bold"))
             )
-            fig_def.update_yaxes(showgrid=False, showticklabels=False, title=None, range=[0, max_val * 1.35])
+            fig_def.update_yaxes(showgrid=False, showticklabels=False, title=None, range=[0, max_val * 1.5])
             st.plotly_chart(fig_def, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -736,13 +736,13 @@ if seccion_principal == "Calidad Producto Terminado":
                 fig_p1.update_traces(
                     textposition='outside',
                     textangle=-90,
-                    textfont=dict(color='#000000', size=14, family="sans-serif", weight="bold"),
+                    textfont=dict(color='#000000', size=38, family="sans-serif", weight="bold"),
                     marker_line_color='#334155',
                     marker_line_width=1
                 )
                 max_p1 = df_p1['VAL_PCT'].max() if not df_p1.empty else 100.0
                 fig_p1.update_layout(
-                    height=520, 
+                    height=550, 
                     paper_bgcolor='rgba(0,0,0,0)', 
                     plot_bgcolor='rgba(0,0,0,0)', 
                     font_color='#FFFFFF',
@@ -754,7 +754,7 @@ if seccion_principal == "Calidad Producto Terminado":
                     tickfont=dict(color='#000000', size=14, family="Segoe UI, sans-serif", weight="bold"), 
                     title=None
                 )
-                fig_p1.update_yaxes(showgrid=False, showticklabels=False, title=None, range=[0, max_p1 * 1.35])
+                fig_p1.update_yaxes(showgrid=False, showticklabels=False, title=None, range=[0, max_p1 * 1.5])
                 st.plotly_chart(fig_p1, use_container_width=True)
 
         with c_b:
@@ -774,13 +774,13 @@ if seccion_principal == "Calidad Producto Terminado":
                 fig_p3.update_traces(
                     textposition='outside',
                     textangle=-90,
-                    textfont=dict(color='#000000', size=14, family="sans-serif", weight="bold"),
+                    textfont=dict(color='#000000', size=38, family="sans-serif", weight="bold"),
                     marker_line_color='#334155',
                     marker_line_width=1
                 )
                 max_p3 = df_p3['VAL_PCT'].max() if not df_p3.empty else 100.0
                 fig_p3.update_layout(
-                    height=520, 
+                    height=550, 
                     paper_bgcolor='rgba(0,0,0,0)', 
                     plot_bgcolor='rgba(0,0,0,0)', 
                     font_color='#FFFFFF',
@@ -792,7 +792,7 @@ if seccion_principal == "Calidad Producto Terminado":
                     tickfont=dict(color='#000000', size=14, family="Segoe UI, sans-serif", weight="bold"), 
                     title=None
                 )
-                fig_p3.update_yaxes(showgrid=False, showticklabels=False, title=None, range=[0, max_p3 * 1.35])
+                fig_p3.update_yaxes(showgrid=False, showticklabels=False, title=None, range=[0, max_p3 * 1.5])
                 st.plotly_chart(fig_p3, use_container_width=True)
                 
         st.markdown('</div>', unsafe_allow_html=True)
@@ -919,7 +919,7 @@ if seccion_principal == "Calidad Producto Terminado":
             
             fig_gar.update_traces(
                 textposition='outside',
-                textfont=dict(color='#000000', size=18, family="sans-serif", weight="bold"),
+                textfont=dict(color='#000000', size=38, family="sans-serif", weight="bold"),
                 marker_line_color='#64748B',
                 marker_line_width=1
             )
@@ -941,7 +941,7 @@ if seccion_principal == "Calidad Producto Terminado":
             fig_gar.update_yaxes(
                 showgrid=True, 
                 gridcolor='#334155',
-                range=[0, max_val_gar * 1.25]
+                range=[0, max_val_gar * 1.35]
             )
             
             st.plotly_chart(fig_gar, use_container_width=True)
@@ -1090,23 +1090,23 @@ elif seccion_principal == "Calidad Procesos":
                     
                     fig_var.update_traces(
                         textposition='outside',
-                        textfont=dict(color='#000000', size=14, family="sans-serif", weight="bold"),
+                        textfont=dict(color='#000000', size=38, family="sans-serif", weight="bold"),
                         marker_line_color='#334155',
                         marker_line_width=1
                     )
                     
                     fig_var.update_layout(
-                        height=max(250, len(df_area_var) * 45),
+                        height=max(300, len(df_area_var) * 60),
                         paper_bgcolor='rgba(0,0,0,0)',
                         plot_bgcolor='rgba(0,0,0,0)',
                         font_color='#000000',
-                        margin=dict(l=10, r=60, t=20, b=10)
+                        margin=dict(l=10, r=120, t=20, b=10)
                     )
                     
                     fig_var.update_xaxes(
                         showgrid=False,
                         showticklabels=True,
-                        range=[0, max_var_val * 1.30],
+                        range=[0, max_var_val * 1.45],
                         title=dict(text="% Cumplimiento", font=dict(color='#000000', size=12, weight="bold"))
                     )
                     
@@ -1142,24 +1142,24 @@ elif seccion_principal == "Calidad Procesos":
                             y='VAL_PCT',
                             markers=True,
                             text=df_sub['VAL_PCT'].apply(lambda x: f"{x:.1f}%"),
-                            color_discrete_sequence=['#10B981']
+                            color_discrete_sequence=['#000000']
                         )
                         fig_tend.update_traces(
                             mode="lines+markers+text",
                             textposition="top center",
-                            textfont=dict(color='#000000', size=14, family="sans-serif", weight="bold"),
-                            line=dict(width=3),
-                            marker=dict(size=8, color="#10B981", line=dict(color="#FFFFFF", width=1))
+                            textfont=dict(color='#000000', size=38, family="sans-serif", weight="bold"),
+                            line=dict(width=3, color='#000000'),
+                            marker=dict(size=9, color="#000000", line=dict(color="#FFFFFF", width=1))
                         )
                         min_tend = df_sub['VAL_PCT'].min() if not df_sub.empty else 0.0
                         max_tend = df_sub['VAL_PCT'].max() if not df_sub.empty else 100.0
                         
                         fig_tend.update_layout(
-                            height=400,
+                            height=480,
                             paper_bgcolor='rgba(0,0,0,0)',
                             plot_bgcolor='rgba(0,0,0,0)',
                             font_color='#94A3B8',
-                            margin=dict(l=15, r=15, t=40, b=15)
+                            margin=dict(l=15, r=15, t=50, b=15)
                         )
                         fig_tend.update_xaxes(
                             type="category",
@@ -1170,7 +1170,7 @@ elif seccion_principal == "Calidad Procesos":
                         fig_tend.update_yaxes(
                             showgrid=True,
                             gridcolor='#334155',
-                            range=[max(0.0, min_tend - 10.0), min(120.0, max_tend + 15.0)],
+                            range=[max(0.0, min_tend - 10.0), min(130.0, max_tend + 20.0)],
                             title_text="% Cumplimiento"
                         )
                         st.plotly_chart(fig_tend, use_container_width=True)
