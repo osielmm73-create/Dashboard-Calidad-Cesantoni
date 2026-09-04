@@ -1166,7 +1166,8 @@ elif seccion_principal == "Calidad Procesos":
                             tickangle=-45,
                             showgrid=False,
                             title_text="Fecha",
-                            title_font=dict(color='#000000', size=16, family="sans-serif", weight="bold")
+                            title_font=dict(color='#000000', size=16, family="sans-serif", weight="bold"),
+                            tickfont=dict(color='#000000', size=17, family="sans-serif", weight="bold")
                         )
                         fig_tend.update_yaxes(
                             showgrid=True,
